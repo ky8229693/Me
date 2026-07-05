@@ -1,0 +1,57 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug API (.NET)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "api: build",
+      "program": "${workspaceFolder}/src/WEB_Demo.Api/bin/Debug/net8.0/WEB_Demo.Api.dll",
+      "args": [
+        "--urls",
+        "http://localhost:5186"
+      ],
+      "cwd": "${workspaceFolder}/src/WEB_Demo.Api",
+      "stopAtEntry": false,
+      "postDebugTask": "api: stop",
+      "serverReadyAction": {
+        "action": "openExternally",
+        "pattern": "Now listening on:\\s+(http://\\S+)",
+        "uriFormat": "%s/swagger"
+      },
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "sourceFileMap": {
+        "/Views": "${workspaceFolder}/Views"
+      }
+    },
+    {
+      "name": "Run Client (Vue)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm run dev -- --host 127.0.0.1",
+      "cwd": "${workspaceFolder}/src/WEB_Demo.Client",
+      "postDebugTask": "client: stop"
+    },
+    {
+      "name": "Open Client in Browser",
+      "type": "pwa-chrome",
+      "request": "launch",
+      "url": "http://127.0.0.1:5173",
+      "webRoot": "${workspaceFolder}/src/WEB_Demo.Client/src",
+      "preLaunchTask": "client: dev",
+      "postDebugTask": "client: stop"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Debug Full Stack",
+      "configurations": [
+        "Debug API (.NET)",
+        "Open Client in Browser"
+      ],
+      "stopAll": true
+    }
+  ]
+}
