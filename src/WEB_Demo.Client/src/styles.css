@@ -65,6 +65,44 @@ h1 {
   gap: 8px;
 }
 
+.auth-panel {
+  margin-bottom: 20px;
+  border: 1px solid #d9e1ec;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.auth-form {
+  display: grid;
+  grid-template-columns: 160px minmax(140px, 1fr) minmax(140px, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.auth-form h2 {
+  margin: 0;
+  color: #1f2937;
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+.auth-alert {
+  grid-column: 1 / -1;
+}
+
+.auth-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.auth-user span {
+  flex: 1 1 auto;
+  overflow-wrap: anywhere;
+  color: #1f2937;
+  font-weight: 600;
+}
+
 .todo-form {
   display: grid;
   grid-template-columns: 1fr auto auto;
@@ -106,6 +144,15 @@ h1 {
 
   .summary {
     justify-content: flex-start;
+  }
+
+  .auth-form {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-user {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .todo-form {

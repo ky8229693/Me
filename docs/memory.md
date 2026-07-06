@@ -29,6 +29,12 @@
 - API response 使用共用 `ApiResponse<T>` envelope，但 HTTP status code 仍要正確表達結果。
 - CORS allowed origins 從 `appsettings.*.json` 的 `Cors:AllowedOrigins` 讀取。
 - 健康檢查使用 ASP.NET Core Health Checks，路由為 `/api/health`。
+- Git commit 使用 Conventional Commits 規範，commit 內容說明使用中文。
+- 資料庫選用 PostgreSQL；local 開發使用 DB `web_demo`、port `5432`、帳號 `postgres`、密碼 `1234`，目前 DB 尚未有 application tables。
+- 登入系統資料表應優先透過 ASP.NET Core Identity + EF Core migrations 建立，不手刻登入 table。
+- `auth-foundation` 決策：local registration 開放，且本批包含可見的登入/註冊 UI。
+- EF Core migration 工具使用 repo-local `dotnet-ef`，先執行 `dotnet tool restore`，再用 `dotnet tool run dotnet-ef database update --project src/WEB_Demo.Api/WEB_Demo.Api.csproj --startup-project src/WEB_Demo.Api/WEB_Demo.Api.csproj` 套用 migration。
+- 2026-07-06：已對 local PostgreSQL DB `web_demo` 套用 `InitialIdentitySchema` migration，建立 ASP.NET Core Identity tables。
 
 ## Backend 現況
 
@@ -172,7 +178,7 @@ npm run test:unit
 
 - `api-logging-foundation`：導入較正式的 structured logging，例如 Serilog。
 - `data-persistence-foundation`：導入 EF Core 與 SQL Server persistence。
-- `auth-foundation`：導入 authentication / authorization / JWT / Identity。
+- `auth-foundation`：導入 PostgreSQL-backed ASP.NET Core Identity、JWT 與登入基礎。
 - `e2e-test-foundation`：建立 Playwright E2E 測試基礎。
 
 ## Tooling Notes

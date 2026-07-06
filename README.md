@@ -36,11 +36,38 @@ Swagger: http://localhost:5186/swagger
 
 ```text
 GET    /api/health
+POST   /api/auth/register
+POST   /api/auth/login
+GET    /api/auth/me
+POST   /api/auth/logout
 GET    /api/todos
 POST   /api/todos
 PATCH  /api/todos/{id}/toggle
 DELETE /api/todos/{id}
 ```
+
+## 資料庫與登入
+
+Local development 使用 PostgreSQL：
+
+```text
+Database: web_demo
+Host:     localhost
+Port:     5432
+Username: postgres
+Password: 1234
+```
+
+登入系統使用 ASP.NET Core Identity + EF Core migrations 建立資料表，不手刻登入 table。
+
+Migration 工具使用 repo-local `dotnet-ef`：
+
+```powershell
+dotnet tool restore
+dotnet tool run dotnet-ef database update --project src/WEB_Demo.Api/WEB_Demo.Api.csproj --startup-project src/WEB_Demo.Api/WEB_Demo.Api.csproj
+```
+
+目前已套用 `InitialIdentitySchema` migration，local DB 內已建立 ASP.NET Core Identity tables。
 
 ## 前端
 
@@ -74,6 +101,8 @@ dotnet test WEB_Demo.sln
 - `/` redirect 到 `/swagger`
 - `GET /api/health`
 - `GET /api/todos`
+- `POST /api/auth/register`
+- `GET /api/auth/me` unauthorized behavior
 
 ## OpenSpec
 

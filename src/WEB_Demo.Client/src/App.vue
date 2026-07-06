@@ -1,17 +1,25 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
-import { CircleCheck, Delete, Plus, Refresh } from '@element-plus/icons-vue';
+import { CircleCheck, Delete, Plus, Refresh, SwitchButton, User } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
+import { getCurrentUser, login, logout, register } from './api/auth';
 import { createTodo, deleteTodo as deleteTodoItem, getTodos, toggleTodo as toggleTodoItem } from './api/todos';
-import type { TodoItem } from './api/types';
+import type { AuthUser, TodoItem } from './api/types';
 
 const todos = ref<TodoItem[]>([]);
 const newTitle = ref('');
 const isLoading = ref(false);
 const errorMessage = ref('');
+const authMode = ref<'login' | 'register'>('login');
+const authEmail = ref('');
+const authPassword = ref('');
+const authUser = ref<AuthUser | null>(null);
+const isAuthLoading = ref(false);
+const authErrorMessage = ref('');
 
 const remainingCount = computed(() => todos.value.filter(todo => !todo.isDone).length);
 const completedCount = computed(() => todos.value.length - remainingCount.value);
+const authTitle = computed(() => (authMode.value === 'login' ? 'Sign in' : 'Create account'));
 
 async function loadTodos() {
   isLoading.value = true;
@@ -24,6 +32,56 @@ async function loadTodos() {
   } finally {
     isLoading.value = false;
   }
+}
+
+async function loadCurrentUser() {
+  try {
+    authUser.value = await getCurrentUser();
+  } catch {
+    authUser.value = null;
+    logout();
+  }
+}
+
+async function submitAuth() {
+  const email = authEmail.value.trim();
+  const password = authPassword.value;
+  authErrorMessage.value = '';
+
+  if (!email || !password) {
+    authErrorMessage.value = 'Email and password are required.';
+    ElMessage.warning('Email and password are required.');
+    return;
+  }
+
+  if (password.length < 6) {
+    authErrorMessage.value = 'Password must be at least 6 characters.';
+    ElMessage.warning(authErrorMessage.value);
+    return;
+  }
+
+  isAuthLoading.value = true;
+
+  try {
+    const response = authMode.value === 'login'
+      ? await login({ email, password })
+      : await register({ email, password });
+
+    authUser.value = response?.user ?? null;
+    authPassword.value = '';
+    ElMessage.success(authMode.value === 'login' ? 'Signed in.' : 'Account created.');
+  } catch (error) {
+    authErrorMessage.value = error instanceof Error ? error.message : 'Authentication failed.';
+    ElMessage.error(authErrorMessage.value);
+  } finally {
+    isAuthLoading.value = false;
+  }
+}
+
+function signOut() {
+  logout();
+  authUser.value = null;
+  ElMessage.success('Signed out.');
 }
 
 async function addTodo() {
@@ -70,7 +128,9 @@ async function deleteTodo(todo: TodoItem) {
   }
 }
 
-onMounted(loadTodos);
+onMounted(async () => {
+  await Promise.all([loadTodos(), loadCurrentUser()]);
+});
 </script>
 
 <template>
@@ -87,6 +147,43 @@ onMounted(loadTodos);
           <el-tag type="success" effect="light">{{ completedCount }} done</el-tag>
         </div>
       </header>
+
+      <section class="auth-panel" aria-label="Authentication">
+        <div v-if="authUser" class="auth-user">
+          <el-icon><User /></el-icon>
+          <span>{{ authUser.email }}</span>
+          <el-button :icon="SwitchButton" @click="signOut">Logout</el-button>
+        </div>
+
+        <el-form v-else class="auth-form" @submit.prevent="submitAuth">
+          <el-segmented
+            v-model="authMode"
+            :options="[
+              { label: 'Login', value: 'login' },
+              { label: 'Register', value: 'register' }
+            ]"
+          />
+          <h2>{{ authTitle }}</h2>
+          <el-input v-model="authEmail" type="email" autocomplete="email" placeholder="Email" />
+          <el-input
+            v-model="authPassword"
+            type="password"
+            :autocomplete="authMode === 'login' ? 'current-password' : 'new-password'"
+            show-password
+            placeholder="Password"
+            @keyup.enter="submitAuth"
+          />
+          <el-alert
+            v-if="authErrorMessage"
+            class="auth-alert"
+            type="error"
+            :title="authErrorMessage"
+            show-icon
+            :closable="false"
+          />
+          <el-button native-type="submit" type="primary" :loading="isAuthLoading">Submit</el-button>
+        </el-form>
+      </section>
 
       <el-form class="todo-form" @submit.prevent="addTodo">
         <el-input

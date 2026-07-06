@@ -1,4 +1,5 @@
 import { ApiError, type ApiResponse } from './types';
+import { getAuthToken } from './authToken';
 
 type ApiRequestOptions = Omit<RequestInit, 'body'> & {
   body?: unknown;
@@ -11,6 +12,11 @@ export async function requestApi<T>(path: string, options: ApiRequestOptions = {
 
   if (hasBody && !requestHeaders.has('Content-Type')) {
     requestHeaders.set('Content-Type', 'application/json');
+  }
+
+  const authToken = getAuthToken();
+  if (authToken && !requestHeaders.has('Authorization')) {
+    requestHeaders.set('Authorization', `Bearer ${authToken}`);
   }
 
   const response = await fetch(path, {

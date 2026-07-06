@@ -16,6 +16,7 @@ function mockApiResponse<T>(response: {
 
 describe('requestApi', () => {
   afterEach(() => {
+    window.localStorage.clear();
     vi.unstubAllGlobals();
   });
 
@@ -106,5 +107,28 @@ describe('requestApi', () => {
     expect(init.body).toBe(JSON.stringify({ title: 'Created todo' }));
     expect(init.headers).toBeInstanceOf(Headers);
     expect((init.headers as Headers).get('Content-Type')).toBe('application/json');
+  });
+
+  it('adds a bearer token when one is stored', async () => {
+    window.localStorage.setItem('web_demo.auth_token', 'test-token');
+    const fetchMock = vi.fn().mockResolvedValue(
+      mockApiResponse({
+        ok: true,
+        status: 200,
+        body: {
+          success: true,
+          message: null,
+          data: { id: 'user-1', email: 'user@example.com' },
+          errorCode: null
+        }
+      })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await requestApi('/api/auth/me');
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(init.headers).toBeInstanceOf(Headers);
+    expect((init.headers as Headers).get('Authorization')).toBe('Bearer test-token');
   });
 });

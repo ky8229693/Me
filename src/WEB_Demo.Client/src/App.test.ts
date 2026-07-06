@@ -3,8 +3,16 @@ import { flushPromises, mount } from '@vue/test-utils';
 import ElementPlus from 'element-plus';
 // @ts-ignore: Vue single-file component declarations are handled by Vite/Vue plugin
 import App from './App.vue';
+import * as authApi from './api/auth';
 import * as todoApi from './api/todos';
 import type { TodoItem } from './api/types';
+
+vi.mock('./api/auth', () => ({
+  getCurrentUser: vi.fn(),
+  login: vi.fn(),
+  logout: vi.fn(),
+  register: vi.fn()
+}));
 
 vi.mock('./api/todos', () => ({
   getTodos: vi.fn(),
@@ -13,6 +21,8 @@ vi.mock('./api/todos', () => ({
   deleteTodo: vi.fn()
 }));
 
+const getCurrentUserMock = vi.mocked(authApi.getCurrentUser);
+const loginMock = vi.mocked(authApi.login);
 const getTodosMock = vi.mocked(todoApi.getTodos);
 const createTodoMock = vi.mocked(todoApi.createTodo);
 const toggleTodoMock = vi.mocked(todoApi.toggleTodo);
@@ -38,6 +48,8 @@ describe('App', () => {
     );
 
     getTodosMock.mockResolvedValue([]);
+    getCurrentUserMock.mockResolvedValue(null);
+    loginMock.mockResolvedValue(null);
     createTodoMock.mockResolvedValue(null);
     toggleTodoMock.mockResolvedValue(null);
     deleteTodoMock.mockResolvedValue(undefined);
@@ -63,11 +75,24 @@ describe('App', () => {
     await flushPromises();
 
     await wrapper.find('input[placeholder="Add a todo item"]').setValue('New todo');
-    await wrapper.find('form').trigger('submit');
+    await wrapper.find('.todo-form').trigger('submit');
     await flushPromises();
 
     expect(createTodoMock).toHaveBeenCalledWith('New todo');
     expect(wrapper.text()).toContain('New todo');
+  });
+
+  it('shows validation feedback for short auth passwords', async () => {
+    const wrapper = mountApp();
+    await flushPromises();
+
+    await wrapper.find('input[placeholder="Email"]').setValue('user@example.com');
+    await wrapper.find('input[placeholder="Password"]').setValue('1234');
+    await wrapper.find('.auth-form').trigger('submit');
+    await flushPromises();
+
+    expect(loginMock).not.toHaveBeenCalled();
+    expect(wrapper.text()).toContain('Password must be at least 6 characters.');
   });
 
   it('toggles and deletes todos through the Todo API module', async () => {
