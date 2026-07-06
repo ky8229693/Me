@@ -2,19 +2,8 @@
 import { computed, onMounted, ref } from 'vue';
 import { CircleCheck, Delete, Plus, Refresh } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
-
-type ApiResponse<T> = {
-  success: boolean;
-  message: string | null;
-  data: T | null;
-  errorCode: string | null;
-};
-
-type TodoItem = {
-  id: number;
-  title: string;
-  isDone: boolean;
-};
+import { createTodo, deleteTodo as deleteTodoItem, getTodos, toggleTodo as toggleTodoItem } from './api/todos';
+import type { TodoItem } from './api/types';
 
 const todos = ref<TodoItem[]>([]);
 const newTitle = ref('');
@@ -24,24 +13,12 @@ const errorMessage = ref('');
 const remainingCount = computed(() => todos.value.filter(todo => !todo.isDone).length);
 const completedCount = computed(() => todos.value.length - remainingCount.value);
 
-async function readApiResponse<T>(response: Response): Promise<ApiResponse<T>> {
-  const body = (await response.json()) as ApiResponse<T>;
-
-  if (!response.ok || !body.success) {
-    throw new Error(body.message ?? 'API request failed.');
-  }
-
-  return body;
-}
-
 async function loadTodos() {
   isLoading.value = true;
   errorMessage.value = '';
 
   try {
-    const response = await fetch('/api/todos');
-    const body = await readApiResponse<TodoItem[]>(response);
-    todos.value = body.data ?? [];
+    todos.value = await getTodos();
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Unknown error.';
   } finally {
@@ -57,21 +34,14 @@ async function addTodo() {
   }
 
   try {
-    const response = await fetch('/api/todos', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ title })
-    });
-    const body = await readApiResponse<TodoItem>(response);
+    const todo = await createTodo(title);
 
-    if (body.data) {
-      todos.value.push(body.data);
+    if (todo) {
+      todos.value.push(todo);
     }
 
     newTitle.value = '';
-    ElMessage.success(body.message ?? 'Created.');
+    ElMessage.success('Created.');
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : 'Create failed.');
   }
@@ -79,13 +49,10 @@ async function addTodo() {
 
 async function toggleTodo(todo: TodoItem) {
   try {
-    const response = await fetch(`/api/todos/${todo.id}/toggle`, {
-      method: 'PATCH'
-    });
-    const body = await readApiResponse<TodoItem>(response);
+    const updatedTodo = await toggleTodoItem(todo.id);
 
-    if (body.data) {
-      todos.value = todos.value.map(item => (item.id === body.data?.id ? body.data : item));
+    if (updatedTodo) {
+      todos.value = todos.value.map(item => (item.id === updatedTodo.id ? updatedTodo : item));
     }
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : 'Update failed.');
@@ -94,13 +61,10 @@ async function toggleTodo(todo: TodoItem) {
 
 async function deleteTodo(todo: TodoItem) {
   try {
-    const response = await fetch(`/api/todos/${todo.id}`, {
-      method: 'DELETE'
-    });
-    const body = await readApiResponse<null>(response);
+    await deleteTodoItem(todo.id);
 
     todos.value = todos.value.filter(item => item.id !== todo.id);
-    ElMessage.success(body.message ?? 'Deleted.');
+    ElMessage.success('Deleted.');
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : 'Delete failed.');
   }

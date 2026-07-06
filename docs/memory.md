@@ -1,117 +1,106 @@
 # Project Memory
 
-這份文件是「用到才讀」的長期背景記憶。`AGENTS.md` 放日常工作規則；本檔放較完整的決策歷史、取捨與暫緩事項。
+最後更新：2026-07-06
 
-## 目前定位
+這份文件記錄專案決策、目前狀態、已完成的 OpenSpec change，以及後續可優先處理的工作。開發規範以 `AGENTS.md` 為準；本文件只補充脈絡與歷史。
+
+## 專案概況
 
 - 專案名稱：`WEB_Demo`
-- 目標：建立一個以 .NET 後端與 Vue 前端為主的 Web 專案骨架。
-- 開發方式：採用 OpenSpec SDD 管理較大的需求與架構變更。
-- 預設溝通語言：繁體中文。
+- 後端：ASP.NET Core Web API on .NET 8 LTS
+- 前端：Vue 3 + TypeScript + Vite
+- UI library：Element Plus 與 `@element-plus/icons-vue`
+- 開發模式：HTTP only，不主動導入 HTTPS
+- API local URL：`http://localhost:5186`
+- Swagger：`http://localhost:5186/swagger`
+- Frontend local URL：`http://127.0.0.1:5173`
+- Vite proxy：`/api` proxy 到 `http://localhost:5186`
 
-## 技術選型決策
+## 已確認決策
 
-- 2026-07-05：後端選用 ASP.NET Core Web API。
-  - 原因：使用者習慣 .NET，且 Web API 可支援 Vue/React/Blazor 等不同前端。
-- 2026-07-05：後端 Target Framework 選用 .NET 8 LTS。
-  - 原因：LTS 較適合長期維護與企業系統。
-  - 備註：已透過 winget 安裝 .NET SDK `8.0.422`。
-- 2026-07-05：前端選用 Vue 3 + TypeScript + Vite。
-  - 原因：相較 React，Vue 對 .NET/後端背景開發者較容易上手，適合後台、表單、CRUD 類型系統。
-- 2026-07-05：UI library 選用 Element Plus。
-  - 原因：適合 Vue 3 後台與資料維護系統，上手快、元件完整。
-  - 實作：使用 `element-plus`、`@element-plus/icons-vue`，並透過 Vite plugins 自動按需匯入。
-- 2026-07-05：Node.js 更新到 `24.18.0` LTS。
-  - 原因：OpenSpec 與部分前端工具要求 Node `>=20.19.0`，改用 24 LTS 避免版本警告。
-- 2026-07-05：本機開發暫不使用 HTTPS。
-  - 原因：避免 ASP.NET Core dev certificate 干擾開發流程。
-  - 目前 API 使用 `http://localhost:5186`。
-
-## API 決策
-
-- 目前使用 ASP.NET Core Minimal APIs，不使用 Controllers。
-  - 原因：專案仍小，Minimal APIs 足夠且更輕量。
-  - 未來條件：當 API 模組變多、需要更傳統分層或 attribute routing 時，再開 spec 評估 Controllers。
+- 使用 ASP.NET Core Web API 作為後端。
+- Target Framework 使用 .NET 8 LTS。
+- 前端使用 Vue 3 + TypeScript + Vite。
+- UI 元件優先使用 Element Plus。
+- 開發環境維持 HTTP only，避免 dev certificate 與 HTTPS 設定干擾初期開發。
+- API 暫時使用 Minimal APIs；等規模真的需要時再評估 controllers。
 - API routes 維持 `/api/*`。
-- API root `/` 會 redirect 到 `/swagger`。
-- Swagger UI 維持可用於本機開發。
-- API response 使用共用 `ApiResponse<T>` envelope。
-  - 成功與失敗 payload 都包含 `success`、`message`、`data`、`errorCode`。
-  - HTTP status code 仍需正確使用，不採用永遠 `200 OK` 的做法。
-- 2026-07-05：已套用 `api-foundation`。
-  - `Program.cs` 現在只負責 services、middleware、Swagger、CORS、endpoint module wiring。
-  - Todo routes 已移到 `Endpoints/TodoEndpoints.cs`。
-  - Health route 已移到 `Endpoints/HealthEndpoints.cs`，並使用 ASP.NET Core `HealthCheckService`。
-  - Todo in-memory state 與邏輯已移到 `Services/InMemoryTodoService.cs`。
-  - 未處理例外由 `Middleware/ApiExceptionHandlingMiddleware.cs` 統一轉成 `ApiResponse<object>` failure payload。
-  - CORS origins 已改由 `appsettings.Development.json` 的 `Cors:AllowedOrigins` 設定。
+- API root `/` redirect 到 `/swagger`。
+- API response 使用共用 `ApiResponse<T>` envelope，但 HTTP status code 仍要正確表達結果。
+- CORS allowed origins 從 `appsettings.*.json` 的 `Cors:AllowedOrigins` 讀取。
+- 健康檢查使用 ASP.NET Core Health Checks，路由為 `/api/health`。
 
-## OpenSpec 決策
+## Backend 現況
 
-- OpenSpec 已安裝套件：`@fission-ai/openspec@1.5.0`。
-- OpenSpec 內容可以使用繁體中文。
-- OpenSpec 固定結構標記需保留英文，例如：
-  - `## ADDED Requirements`
-  - `### Requirement:`
-  - `#### Scenario:`
-  - `- **WHEN**`
-  - `- **THEN**`
-- change id 與 capability id 維持英文 kebab-case。
-- 目前 active change：
-  - `openspec/changes/api-test-foundation`
-- 已完成但尚未 archive 的 change：
-  - `openspec/changes/api-foundation`
+- `Program.cs` 聚焦於 service registration、middleware、Swagger、CORS 與 endpoint module wiring。
+- Feature routes 已拆到 `Endpoints/*Endpoints.cs`。
+- Todo endpoint 位於 `Endpoints/TodoEndpoints.cs`。
+- Health endpoint 位於 `Endpoints/HealthEndpoints.cs`，使用 `HealthCheckService`。
+- Todo in-memory demo state 位於 `Services/InMemoryTodoService.cs`。
+- Todo service 介面位於 `Services/ITodoService.cs`。
+- 共用 response/error model 位於 `Models/`。
+- Exception handling middleware 位於 `Middleware/ApiExceptionHandlingMiddleware.cs`。
+- CORS options 位於 `Options/ApiCorsOptions.cs`。
 
-## api-foundation 範圍
+## Frontend 現況
 
-`api-foundation` 只處理第一批 API 基礎架構：
+- 前端使用 Vue 3 Composition API + TypeScript。
+- Element Plus components 透過 Vite plugins auto-import。
+- API calls 已集中到 `src/WEB_Demo.Client/src/api/`，包含 shared HTTP helper、Todo API module 與共用型別。
+- 前端單元測試使用 Vitest、jsdom、Vue Test Utils。
+- 前端單元測試指令：`npm run test:unit`。
 
-1. API structure split into endpoints/services/contracts-style folders.
-2. Centralized exception handling.
-3. CORS origins moved to `appsettings`.
-4. ASP.NET Core Health Checks.
+## OpenSpec 現況
 
-同時保留既有行為：
+- 目前沒有 active change。
+- 已 archive：
+  - `openspec/changes/archive/2026-07-05-api-foundation`
+  - `openspec/changes/archive/2026-07-05-api-test-foundation`
+  - `openspec/changes/archive/2026-07-06-frontend-api-client-foundation`
+  - `openspec/changes/archive/2026-07-06-frontend-test-foundation`
+- Main specs：
+  - `openspec/specs/api-foundation/spec.md`
+  - `openspec/specs/api-test-foundation/spec.md`
+  - `openspec/specs/frontend-api-client-foundation/spec.md`
+  - `openspec/specs/frontend-test-foundation/spec.md`
+- 小型文件修正或機械調整可直接修改，不需要 OpenSpec change。
+- 新功能或行為變更仍優先走 OpenSpec SDD。
 
-- `ApiResponse<T>` response envelope。
-- Swagger UI。
-- `/` redirect 到 `/swagger`。
-- HTTP-only local development。
+## 已完成：api-foundation
 
-刻意延後，不放進 `api-foundation`：
+`api-foundation` 完成第一批 API 基礎整理：
 
-- EF Core / Database。
-- Authentication / Authorization。
-- JWT / ASP.NET Core Identity。
-- Role / Permission。
-- Serilog 或更完整 logging infrastructure。
-- 大規模 DTO restructuring。
-- 從 Minimal APIs 改成 Controllers。
+1. API 結構拆成 endpoint、service、options、middleware 等資料夾。
+2. Todo routes 從 `Program.cs` 移到 endpoint extension。
+3. Todo in-memory state 移到 service。
+4. 建立 centralized exception handling middleware。
+5. CORS origins 移到 appsettings。
+6. 加入 ASP.NET Core Health Checks 與 `/api/health`。
+7. 保留 Swagger UI、`/` redirect 到 `/swagger`、`ApiResponse<T>` envelope、HTTP-only local development。
 
-這些項目之後應各自開獨立 OpenSpec change。
+明確延後到未來 change：
 
-## api-test-foundation 範圍
+- EF Core / database
+- Authentication / Authorization
+- JWT / ASP.NET Core Identity
+- Role / Permission
+- Serilog 或更完整 logging infrastructure
+- 大型 DTO restructuring
+- Minimal APIs migration to controllers
 
-2026-07-05：已套用 `api-test-foundation` OpenSpec change。
+## 已完成：api-test-foundation
 
-此 change 只處理第一批後端測試基礎：
+`api-test-foundation` 完成第一批後端測試基礎：
 
-1. 建立 `tests/WEB_Demo.Api.Tests` xUnit 測試專案。
+1. 建立 `tests/WEB_Demo.Api.Tests` xUnit test project。
 2. 加入 `WEB_Demo.Api` project reference。
-3. 安裝 `FluentAssertions` 與 `Microsoft.AspNetCore.Mvc.Testing`。
+3. 使用 FluentAssertions 與 `Microsoft.AspNetCore.Mvc.Testing`。
 4. 測試 `InMemoryTodoService` 的 create/read/toggle/delete 行為。
-5. 用 `WebApplicationFactory<Program>` 測少量 API foundation routes：
+5. 使用 `WebApplicationFactory<Program>` 測試基礎 API routes：
    - `GET /`
    - `GET /api/health`
    - `GET /api/todos`
-6. 補上測試執行指令文件。
-
-已新增：
-
-- `WEB_Demo.sln`
-- `tests/WEB_Demo.Api.Tests`
-- `Services/InMemoryTodoServiceTests.cs`
-- `Endpoints/ApiFoundationEndpointsTests.cs`
+6. 更新測試指令文件。
 
 測試指令：
 
@@ -119,25 +108,79 @@
 dotnet test WEB_Demo.sln
 ```
 
-刻意延後，不放進 `api-test-foundation`：
+明確延後到未來 change：
 
-- 前端 unit tests。
-- Playwright 或其他 E2E tests。
-- Database tests。
-- Authentication / authorization tests。
-- Coverage threshold。
+- Playwright / E2E tests
+- Database tests
+- Authentication / authorization tests
+- Coverage threshold
 
-## VS Code 偵錯決策
+## 已完成：frontend-api-client-foundation
 
-- 已建立 `.vscode/tasks.json` 與 `.vscode/launch.json`。
-- `Debug Full Stack` 同時啟動 API 與 Vue client。
-- 停止偵錯後，透過 `postDebugTask` 清理：
+`frontend-api-client-foundation` 完成第一批前端 API client 基礎：
+
+1. 建立 `src/WEB_Demo.Client/src/api/` 作為前端 API boundary。
+2. 新增 reusable API response 與 Todo TypeScript types。
+3. 建立 native `fetch` shared request helper，統一解析 `ApiResponse<T>` envelope。
+4. 統一處理 HTTP failure、envelope failure 與 backend message。
+5. 建立 Todo API module，包含 list/create/toggle/delete。
+6. 將 `App.vue` 從直接 `fetch` 改為呼叫 Todo API module。
+7. 保留既有 Todo loading、empty、success、error UI 行為。
+
+明確延後到未來 change：
+
+- 新 HTTP client runtime dependency，例如 axios
+- State management，例如 Pinia
+- Authentication-aware API client
+- Retry、cache、request cancellation
+
+## 已完成：frontend-test-foundation
+
+`frontend-test-foundation` 完成第一批前端單元測試基礎：
+
+1. 加入 Vitest、jsdom、Vue Test Utils 作為 devDependencies。
+2. 新增 `npm run test:unit` 前端單元測試指令。
+3. 新增 Vitest 設定，使用 Vue plugin 與 jsdom。
+4. 測試 shared API client 的成功 envelope、HTTP failure、envelope failure、JSON body content type。
+5. 測試 Todo UI 初始載入、新增、toggle、delete 時會呼叫對應 Todo API module。
+6. 保持前端 build 與 unit tests 可作為驗證指令。
+
+測試指令：
+
+```powershell
+cd src/WEB_Demo.Client
+npm run test:unit
+```
+
+## VS Code 狀態
+
+- 已有 `.vscode/tasks.json` 與 `.vscode/launch.json`。
+- `Debug Full Stack` 可同時啟動 API 與 Vue client。
+- 停止偵錯時透過 `postDebugTask` 清理：
   - `api: stop`
   - `client: stop`
-- 原因：API 與 Vite dev server 若以 background task 或 `Start-Process` 啟動，停止偵錯不一定會自動關閉。
 
-## 暫時注意事項
+## 可優先處理的下一批工作
 
-- PowerShell 顯示繁體中文 Markdown 時可能出現亂碼，但 OpenSpec validate 已確認文件有效。
-- 若 `dotnet` 找不到，通常是 PATH 尚未刷新，重開終端機或 VS Code。
-- 若前端或 OpenSpec 工具出現版本警告，先確認 `node --version` 是否為 `v24.18.0` 或更新的 LTS。
+小修改可直接做：
+
+- 維護 `docs/memory.md` 與 README 狀態。
+- 修正文案、註解、文件錯字。
+- 清理明顯過期的開發記錄。
+
+需要 OpenSpec change 的候選項目：
+
+- `api-logging-foundation`：導入較正式的 structured logging，例如 Serilog。
+- `data-persistence-foundation`：導入 EF Core 與 SQL Server persistence。
+- `auth-foundation`：導入 authentication / authorization / JWT / Identity。
+- `e2e-test-foundation`：建立 Playwright E2E 測試基礎。
+
+## Tooling Notes
+
+- .NET SDK 8.0.422 曾透過 winget 安裝。
+- Node.js 24.18.0 LTS 曾透過 winget 安裝。
+- 如果 `dotnet` 找不到，通常需要重啟 terminal 或 VS Code 讓 PATH 更新。
+- 目前環境中 `git` 指令可能不在 PATH；需要版本狀態時先確認 Git 安裝或 PATH。
+- 建立或修改含中文的檔案時，應明確使用 UTF-8；讀回驗證時使用 `Get-Content -Encoding UTF8`，避免 PowerShell 預設編碼或 console code page 造成亂碼誤判。
+- 小型文件修正、註解調整、錯字修正、狀態同步、明顯機械性修改可直接處理，不需要建立 OpenSpec change；新功能或行為變更才優先走 OpenSpec SDD。
+- 之後撰寫 OpenSpec change 時，spec/tasks 應納入合理的單元測試規劃；若暫不做測試，需在 proposal/design/tasks 中明確說明原因與延後範圍。
