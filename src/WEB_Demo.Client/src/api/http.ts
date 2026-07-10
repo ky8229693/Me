@@ -19,13 +19,36 @@ export async function requestApi<T>(path: string, options: ApiRequestOptions = {
     requestHeaders.set('Authorization', `Bearer ${authToken}`);
   }
 
-  const response = await fetch(path, {
-    ...init,
-    headers: requestHeaders,
-    body: hasBody ? JSON.stringify(body) : undefined
-  });
+  let response: Response;
 
-  const payload = (await response.json()) as ApiResponse<T>;
+  try {
+    response = await fetch(path, {
+      ...init,
+      headers: requestHeaders,
+      body: hasBody ? JSON.stringify(body) : undefined
+    });
+  } catch {
+    throw new ApiError('Unable to connect to the API. Please make sure the backend is running.', 0, null);
+  }
+
+  const responseText = await response.text();
+  let payload: ApiResponse<T> | null = null;
+
+  if (responseText) {
+    try {
+      payload = JSON.parse(responseText) as ApiResponse<T>;
+    } catch {
+      throw new ApiError('API returned an unexpected response format.', response.status, null);
+    }
+  }
+
+  if (!payload) {
+    if (response.ok) {
+      return null;
+    }
+
+    throw new ApiError('API request failed with an empty response.', response.status, null);
+  }
 
   if (!response.ok || !payload.success) {
     throw new ApiError(

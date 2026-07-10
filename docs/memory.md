@@ -1,60 +1,93 @@
 # Project Memory
 
-最後更新：2026-07-06
+最後更新：2026-07-10
 
-這份文件記錄專案決策、目前狀態、已完成的 OpenSpec change，以及後續可優先處理的工作。開發規範以 `AGENTS.md` 為準；本文件只補充脈絡與歷史。
+本文件記錄專案目前狀態、重要決策、已完成的 OpenSpec change，以及後續工作。開發規範以 `AGENTS.md` 為準；本文件補充專案脈絡與歷史。
 
 ## 專案概況
 
 - 專案名稱：`WEB_Demo`
 - 後端：ASP.NET Core Web API on .NET 8 LTS
 - 前端：Vue 3 + TypeScript + Vite
-- UI library：Element Plus 與 `@element-plus/icons-vue`
-- 開發模式：HTTP only，不主動導入 HTTPS
-- API local URL：`http://localhost:5186`
+- UI：PrimeVue、`primeicons`、`@primeuix/themes`（Aura theme）
+- 資料庫：PostgreSQL
+- 開發模式：HTTP only
+- API：`http://localhost:5186`
 - Swagger：`http://localhost:5186/swagger`
-- Frontend local URL：`http://127.0.0.1:5173`
-- Vite proxy：`/api` proxy 到 `http://localhost:5186`
+- Frontend：`http://127.0.0.1:5173`
+- Vite proxy：`/api` 轉送至 `http://localhost:5186`
 
 ## 已確認決策
 
-- 使用 ASP.NET Core Web API 作為後端。
-- Target Framework 使用 .NET 8 LTS。
-- 前端使用 Vue 3 + TypeScript + Vite。
-- UI 元件優先使用 Element Plus。
-- 開發環境維持 HTTP only，避免 dev certificate 與 HTTPS 設定干擾初期開發。
-- API 暫時使用 Minimal APIs；等規模真的需要時再評估 controllers。
-- API routes 維持 `/api/*`。
-- API root `/` redirect 到 `/swagger`。
-- API response 使用共用 `ApiResponse<T>` envelope，但 HTTP status code 仍要正確表達結果。
+- API routes 維持 `/api/*`，根路徑 `/` redirect 至 `/swagger`。
+- API 暫時使用 Minimal APIs；等規模確實需要時再評估 controllers。
+- API response 使用共用 `ApiResponse<T>` envelope，同時保留正確的 HTTP status code。
+- `Program.cs` 聚焦 service registration、middleware、Swagger、CORS 與 endpoint wiring。
 - CORS allowed origins 從 `appsettings.*.json` 的 `Cors:AllowedOrigins` 讀取。
 - 健康檢查使用 ASP.NET Core Health Checks，路由為 `/api/health`。
-- Git commit 使用 Conventional Commits 規範，commit 內容說明使用中文。
-- 資料庫選用 PostgreSQL；local 開發使用 DB `web_demo`、port `5432`、帳號 `postgres`、密碼 `1234`，目前 DB 尚未有 application tables。
-- 登入系統資料表應優先透過 ASP.NET Core Identity + EF Core migrations 建立，不手刻登入 table。
-- `auth-foundation` 決策：local registration 開放，且本批包含可見的登入/註冊 UI。
-- EF Core migration 工具使用 repo-local `dotnet-ef`，先執行 `dotnet tool restore`，再用 `dotnet tool run dotnet-ef database update --project src/WEB_Demo.Api/WEB_Demo.Api.csproj --startup-project src/WEB_Demo.Api/WEB_Demo.Api.csproj` 套用 migration。
-- 2026-07-06：已對 local PostgreSQL DB `web_demo` 套用 `InitialIdentitySchema` migration，建立 ASP.NET Core Identity tables。
+- 開發環境維持 HTTP only，不主動導入 HTTPS。
+- PostgreSQL 是預設資料庫；local 使用 DB `web_demo`、port `5432`、帳號 `postgres`、密碼 `1234`。
+- 認證使用 ASP.NET Core Identity、EF Core、PostgreSQL 與 JWT；資料表透過 EF Core migrations 建立。
+- Local registration 開放，前端提供登入及註冊 UI。
+- 前端使用 Vue 3 Composition API、TypeScript 與 PrimeVue。
+- Git commit 使用 Conventional Commits，內容說明使用中文。
+- 新功能或行為變更優先使用 OpenSpec SDD；小型文件、錯字與機械性修改可直接處理。
 
 ## Backend 現況
 
-- `Program.cs` 聚焦於 service registration、middleware、Swagger、CORS 與 endpoint module wiring。
-- Feature routes 已拆到 `Endpoints/*Endpoints.cs`。
-- Todo endpoint 位於 `Endpoints/TodoEndpoints.cs`。
-- Health endpoint 位於 `Endpoints/HealthEndpoints.cs`，使用 `HealthCheckService`。
-- Todo in-memory demo state 位於 `Services/InMemoryTodoService.cs`。
-- Todo service 介面位於 `Services/ITodoService.cs`。
+- Feature routes 位於 `Endpoints/*Endpoints.cs`：
+  - `AuthEndpoints.cs`：註冊、登入、目前使用者。
+  - `TodoEndpoints.cs`：Todo CRUD。
+  - `HealthEndpoints.cs`：健康檢查。
+- ASP.NET Core Identity 使用 `AppDbContext` 與 PostgreSQL 儲存帳號資料。
+- JWT bearer authentication 已註冊，API 可驗證 Access Token。
+- `InitialIdentitySchema` migration 已於 2026-07-06 套用至 local PostgreSQL `web_demo`。
+- Todo 資料目前仍由 `InMemoryTodoService` 保存，尚未持久化至資料庫。
 - 共用 response/error model 位於 `Models/`。
-- Exception handling middleware 位於 `Middleware/ApiExceptionHandlingMiddleware.cs`。
-- CORS options 位於 `Options/ApiCorsOptions.cs`。
+- 集中式例外處理位於 `Middleware/ApiExceptionHandlingMiddleware.cs`。
+- CORS 與 JWT 設定類別位於 `Options/`。
 
 ## Frontend 現況
 
-- 前端使用 Vue 3 Composition API + TypeScript。
-- Element Plus components 透過 Vite plugins auto-import。
-- API calls 已集中到 `src/WEB_Demo.Client/src/api/`，包含 shared HTTP helper、Todo API module 與共用型別。
-- 前端單元測試使用 Vitest、jsdom、Vue Test Utils。
-- 前端單元測試指令：`npm run test:unit`。
+- PrimeVue plugin 與 Aura theme 在 `src/WEB_Demo.Client/src/main.ts` 註冊。
+- PrimeVue components 在各 Vue SFC 中按需 import。
+- 全域樣式位於 `src/WEB_Demo.Client/src/styles/`，並使用 Tailwind CSS、SCSS 與 PrimeVue styled mode。
+- `App.vue` 管理登入狀態，依狀態顯示 `LoginView` 或後台 layout。
+- 後台 layout 已拆成 topbar、sidebar、menu 與主要內容區。
+- API calls 集中於 `src/WEB_Demo.Client/src/api/`：
+  - `http.ts`：shared fetch helper、`ApiResponse<T>` 解析、錯誤處理及 Bearer Token。
+  - `auth.ts` / `authToken.ts`：登入、註冊、目前使用者及 Token 管理。
+  - `todos.ts`：Todo API calls。
+- 前端測試使用 Vitest、jsdom 與 Vue Test Utils。
+
+## 測試與驗證
+
+Backend：
+
+```powershell
+dotnet build
+dotnet test WEB_Demo.sln
+```
+
+目前後端測試涵蓋：
+
+- `InMemoryTodoService` create/read/toggle/delete。
+- API root、health、Todo 等基礎 routes。
+- 認證成功及未授權存取情境。
+
+Frontend：
+
+```powershell
+cd src/WEB_Demo.Client
+npm run test:unit
+npm run build
+```
+
+目前前端測試涵蓋：
+
+- Shared API client 的成功及錯誤 envelope、JSON body 與 Bearer Token。
+- Auth API helper。
+- Todo UI 的載入、新增、toggle 與刪除行為。
 
 ## OpenSpec 現況
 
@@ -64,129 +97,97 @@
   - `openspec/changes/archive/2026-07-05-api-test-foundation`
   - `openspec/changes/archive/2026-07-06-frontend-api-client-foundation`
   - `openspec/changes/archive/2026-07-06-frontend-test-foundation`
+  - `openspec/changes/archive/2026-07-06-auth-foundation`
 - Main specs：
   - `openspec/specs/api-foundation/spec.md`
   - `openspec/specs/api-test-foundation/spec.md`
   - `openspec/specs/frontend-api-client-foundation/spec.md`
   - `openspec/specs/frontend-test-foundation/spec.md`
-- 小型文件修正或機械調整可直接修改，不需要 OpenSpec change。
-- 新功能或行為變更仍優先走 OpenSpec SDD。
+  - `openspec/specs/auth-foundation/spec.md`
 
-## 已完成：api-foundation
+## 已完成的基礎建設
 
-`api-foundation` 完成第一批 API 基礎整理：
+### API foundation
 
-1. API 結構拆成 endpoint、service、options、middleware 等資料夾。
-2. Todo routes 從 `Program.cs` 移到 endpoint extension。
-3. Todo in-memory state 移到 service。
-4. 建立 centralized exception handling middleware。
-5. CORS origins 移到 appsettings。
-6. 加入 ASP.NET Core Health Checks 與 `/api/health`。
-7. 保留 Swagger UI、`/` redirect 到 `/swagger`、`ApiResponse<T>` envelope、HTTP-only local development。
+- Endpoint、service、options、middleware 等結構已拆分。
+- Todo in-memory state 已移至 service。
+- 已加入集中式例外處理、CORS 設定與 Health Checks。
+- 保留 Swagger、`ApiResponse<T>` envelope 與 HTTP-only local development。
 
-明確延後到未來 change：
+### API test foundation
 
-- EF Core / database
-- Authentication / Authorization
-- JWT / ASP.NET Core Identity
-- Role / Permission
-- Serilog 或更完整 logging infrastructure
-- 大型 DTO restructuring
-- Minimal APIs migration to controllers
+- 已建立 xUnit test project。
+- 使用 FluentAssertions 與 `Microsoft.AspNetCore.Mvc.Testing`。
+- 已建立 service unit tests 與基礎 API integration tests。
 
-## 已完成：api-test-foundation
+### Frontend API client foundation
 
-`api-test-foundation` 完成第一批後端測試基礎：
+- 已建立共用 `fetch` helper 與 TypeScript API types。
+- 已集中 Todo API calls，統一處理 HTTP 及 envelope errors。
+- Shared helper 已支援 JWT Bearer Token。
 
-1. 建立 `tests/WEB_Demo.Api.Tests` xUnit test project。
-2. 加入 `WEB_Demo.Api` project reference。
-3. 使用 FluentAssertions 與 `Microsoft.AspNetCore.Mvc.Testing`。
-4. 測試 `InMemoryTodoService` 的 create/read/toggle/delete 行為。
-5. 使用 `WebApplicationFactory<Program>` 測試基礎 API routes：
-   - `GET /`
-   - `GET /api/health`
-   - `GET /api/todos`
-6. 更新測試指令文件。
+### Frontend test foundation
 
-測試指令：
+- 已建立 Vitest、jsdom 與 Vue Test Utils 測試環境。
+- 已加入 shared API client、auth client 與 Todo UI tests。
 
-```powershell
-dotnet test WEB_Demo.sln
-```
+### Auth foundation
 
-明確延後到未來 change：
+- 已導入 ASP.NET Core Identity、EF Core、Npgsql 與 JWT bearer authentication。
+- 已建立 Identity migration 並套用至 local PostgreSQL。
+- 已完成 register、login、current-user endpoints。
+- 已完成前端登入、註冊、登出、Token 儲存與 authenticated API request。
+- 已加入後端及前端認證基礎測試。
 
-- Playwright / E2E tests
-- Database tests
-- Authentication / authorization tests
-- Coverage threshold
+## 尚未完成／候選下一步
 
-## 已完成：frontend-api-client-foundation
+以下項目尚未納入 active change；實作前應依範圍建立新的 OpenSpec proposal：
 
-`frontend-api-client-foundation` 完成第一批前端 API client 基礎：
+1. `todo-persistence-foundation`
+   - 將 Todo 從 `InMemoryTodoService` 移至 PostgreSQL。
+   - 建立 Todo entity、EF Core migration 與 database tests。
+   - 評估 Todo 是否需要與登入使用者建立 ownership 關係。
+2. `authorization-foundation`
+   - 規劃 Role、Permission 與 authorization policies。
+   - 補充更完整的 authentication/authorization tests。
+3. `api-logging-foundation`
+   - 導入正式的 structured logging，例如 Serilog。
+4. `e2e-test-foundation`
+   - 使用 Playwright 建立登入與 Todo 主要流程的 E2E tests。
+5. 前端後續能力
+   - 規模需要時再評估 Pinia。
+   - 視需求加入 request cancellation、retry 或 cache。
+6. 測試治理
+   - 規劃 database tests 與 coverage threshold。
 
-1. 建立 `src/WEB_Demo.Client/src/api/` 作為前端 API boundary。
-2. 新增 reusable API response 與 Todo TypeScript types。
-3. 建立 native `fetch` shared request helper，統一解析 `ApiResponse<T>` envelope。
-4. 統一處理 HTTP failure、envelope failure 與 backend message。
-5. 建立 Todo API module，包含 list/create/toggle/delete。
-6. 將 `App.vue` 從直接 `fetch` 改為呼叫 Todo API module。
-7. 保留既有 Todo loading、empty、success、error UI 行為。
+暫不優先：
 
-明確延後到未來 change：
+- Minimal APIs migration to controllers。
+- 大型 DTO restructuring。
+- Axios 等新的 HTTP client runtime dependency。
 
-- 新 HTTP client runtime dependency，例如 axios
-- State management，例如 Pinia
-- Authentication-aware API client
-- Retry、cache、request cancellation
+## Frontend Layout Reference
 
-## 已完成：frontend-test-foundation
+- 前端 UI 已於 2026-07-10 從 Element Plus 遷移至 PrimeVue。
+- 預設使用 PrimeVue styled mode 與 Aura theme。
+- Admin/dashboard layout 參考 Sakai Vue：
+  - GitHub：https://github.com/primefaces/sakai-vue
+  - Preview：https://sakai.primevue.org/
+- Sakai Vue 僅作為 sidebar、topbar、dashboard、table 與 CRUD 畫面的設計參考。
+- 不預設複製完整 Sakai template；應漸進整合，保留既有 API modules、tests 與專案結構。
 
-`frontend-test-foundation` 完成第一批前端單元測試基礎：
+## VS Code 與工具備註
 
-1. 加入 Vitest、jsdom、Vue Test Utils 作為 devDependencies。
-2. 新增 `npm run test:unit` 前端單元測試指令。
-3. 新增 Vitest 設定，使用 Vue plugin 與 jsdom。
-4. 測試 shared API client 的成功 envelope、HTTP failure、envelope failure、JSON body content type。
-5. 測試 Todo UI 初始載入、新增、toggle、delete 時會呼叫對應 Todo API module。
-6. 保持前端 build 與 unit tests 可作為驗證指令。
-
-測試指令：
+- `.vscode/tasks.json` 與 `.vscode/launch.json` 已提供 full-stack debug 設定。
+- `Debug Full Stack` 可同時啟動 API 與 Vue client；停止時會清理 API 與 client processes。
+- .NET SDK 8.0.422 與 Node.js 24.18.0 LTS 曾透過 winget 安裝。
+- 若 `dotnet` 找不到，通常需要重啟 terminal 或 VS Code 以刷新 PATH。
+- EF Core migration 使用 repo-local `dotnet-ef`：
 
 ```powershell
-cd src/WEB_Demo.Client
-npm run test:unit
+dotnet tool restore
+dotnet tool run dotnet-ef database update --project src/WEB_Demo.Api/WEB_Demo.Api.csproj --startup-project src/WEB_Demo.Api/WEB_Demo.Api.csproj
 ```
 
-## VS Code 狀態
-
-- 已有 `.vscode/tasks.json` 與 `.vscode/launch.json`。
-- `Debug Full Stack` 可同時啟動 API 與 Vue client。
-- 停止偵錯時透過 `postDebugTask` 清理：
-  - `api: stop`
-  - `client: stop`
-
-## 可優先處理的下一批工作
-
-小修改可直接做：
-
-- 維護 `docs/memory.md` 與 README 狀態。
-- 修正文案、註解、文件錯字。
-- 清理明顯過期的開發記錄。
-
-需要 OpenSpec change 的候選項目：
-
-- `api-logging-foundation`：導入較正式的 structured logging，例如 Serilog。
-- `data-persistence-foundation`：導入 EF Core 與 SQL Server persistence。
-- `auth-foundation`：導入 PostgreSQL-backed ASP.NET Core Identity、JWT 與登入基礎。
-- `e2e-test-foundation`：建立 Playwright E2E 測試基礎。
-
-## Tooling Notes
-
-- .NET SDK 8.0.422 曾透過 winget 安裝。
-- Node.js 24.18.0 LTS 曾透過 winget 安裝。
-- 如果 `dotnet` 找不到，通常需要重啟 terminal 或 VS Code 讓 PATH 更新。
-- 目前環境中 `git` 指令可能不在 PATH；需要版本狀態時先確認 Git 安裝或 PATH。
-- 建立或修改含中文的檔案時，應明確使用 UTF-8；讀回驗證時使用 `Get-Content -Encoding UTF8`，避免 PowerShell 預設編碼或 console code page 造成亂碼誤判。
-- 小型文件修正、註解調整、錯字修正、狀態同步、明顯機械性修改可直接處理，不需要建立 OpenSpec change；新功能或行為變更才優先走 OpenSpec SDD。
-- 之後撰寫 OpenSpec change 時，spec/tasks 應納入合理的單元測試規劃；若暫不做測試，需在 proposal/design/tasks 中明確說明原因與延後範圍。
+- 中文文件使用 UTF-8；PowerShell 驗證時可使用 `Get-Content -Encoding UTF8`。
+- OpenSpec spec/tasks 應包含合理的單元測試規劃；若延後測試，需在 proposal、design 或 tasks 中清楚記錄。

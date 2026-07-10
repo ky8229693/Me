@@ -5,12 +5,18 @@ import { ApiError } from './types';
 function mockApiResponse<T>(response: {
   ok: boolean;
   status: number;
-  body: T;
+  body: T | string | null;
 }) {
+  const body = typeof response.body === 'string'
+    ? response.body
+    : response.body === null
+      ? ''
+      : JSON.stringify(response.body);
+
   return {
     ok: response.ok,
     status: response.status,
-    json: vi.fn().mockResolvedValue(response.body)
+    text: vi.fn().mockResolvedValue(body)
   } as unknown as Response;
 }
 
@@ -80,6 +86,50 @@ describe('requestApi', () => {
       message: 'Todo was not found.',
       status: 200,
       errorCode: 'todo-not-found'
+    });
+  });
+
+  it('throws a friendly API error when fetch cannot connect', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
+
+    await expect(requestApi('/api/auth/login')).rejects.toMatchObject({
+      message: 'Unable to connect to the API. Please make sure the backend is running.',
+      status: 0,
+      errorCode: null
+    });
+  });
+
+  it('throws a friendly API error for empty failed responses', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      mockApiResponse({
+        ok: false,
+        status: 502,
+        body: null
+      })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(requestApi('/api/auth/login')).rejects.toMatchObject({
+      message: 'API request failed with an empty response.',
+      status: 502,
+      errorCode: null
+    });
+  });
+
+  it('throws a friendly API error for non-JSON responses', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      mockApiResponse({
+        ok: false,
+        status: 500,
+        body: '<html>Server error</html>'
+      })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(requestApi('/api/auth/login')).rejects.toMatchObject({
+      message: 'API returned an unexpected response format.',
+      status: 500,
+      errorCode: null
     });
   });
 

@@ -1,0 +1,3 @@
+[submodule "reference/sakai-vue"]
+	path = reference/sakai-vue
+	url = https://github.com/primefaces/sakai-vue.git

@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
-import ElementPlus from 'element-plus';
+import PrimeVue from 'primevue/config';
+import ToastService from 'primevue/toastservice';
+import Aura from '@primeuix/themes/aura';
 // @ts-ignore: Vue single-file component declarations are handled by Vite/Vue plugin
 import App from './App.vue';
 import * as authApi from './api/auth';
@@ -31,7 +33,10 @@ const deleteTodoMock = vi.mocked(todoApi.deleteTodo);
 function mountApp() {
   return mount(App, {
     global: {
-      plugins: [ElementPlus]
+      plugins: [
+        [PrimeVue, { theme: { preset: Aura } }],
+        ToastService
+      ]
     }
   });
 }
@@ -60,7 +65,9 @@ describe('App', () => {
     vi.unstubAllGlobals();
   });
 
-  it('loads todos on mount', async () => {
+  it('loads todos when the dashboard is mounted', async () => {
+    getCurrentUserMock.mockResolvedValue({ id: '1', email: 'user@example.com' });
+
     mountApp();
     await flushPromises();
 
@@ -69,6 +76,7 @@ describe('App', () => {
 
   it('creates a todo with the entered title', async () => {
     const createdTodo: TodoItem = { id: 2, title: 'New todo', isDone: false };
+    getCurrentUserMock.mockResolvedValue({ id: '1', email: 'user@example.com' });
     createTodoMock.mockResolvedValue(createdTodo);
 
     const wrapper = mountApp();
@@ -86,7 +94,7 @@ describe('App', () => {
     const wrapper = mountApp();
     await flushPromises();
 
-    await wrapper.find('input[placeholder="Email"]').setValue('user@example.com');
+    await wrapper.find('input[placeholder="name@example.com"]').setValue('user@example.com');
     await wrapper.find('input[placeholder="Password"]').setValue('1234');
     await wrapper.find('.auth-form').trigger('submit');
     await flushPromises();
@@ -97,6 +105,7 @@ describe('App', () => {
 
   it('toggles and deletes todos through the Todo API module', async () => {
     const todo: TodoItem = { id: 1, title: 'Existing todo', isDone: false };
+    getCurrentUserMock.mockResolvedValue({ id: '1', email: 'user@example.com' });
     getTodosMock.mockResolvedValue([todo]);
     toggleTodoMock.mockResolvedValue({ ...todo, isDone: true });
 

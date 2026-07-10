@@ -9,8 +9,8 @@
 
 - Backend: ASP.NET Core Web API on .NET 8 LTS.
 - Frontend: Vue 3 + TypeScript + Vite.
-- UI library: Element Plus with `@element-plus/icons-vue`.
-- Element Plus components are auto-imported through Vite plugins.
+- UI library: PrimeVue with `primeicons` and `@primeuix/themes`.
+- PrimeVue is registered manually in `src/WEB_Demo.Client/src/main.ts` with the Aura theme.
 - OpenSpec is used for spec-driven development.
 - Development currently uses HTTP only.
 
@@ -121,7 +121,9 @@ npm run spec:view
 ## Frontend Conventions
 
 - Use Vue 3 Composition API with TypeScript.
-- Use Element Plus for common UI controls before creating custom components.
+- Use PrimeVue for common UI controls before creating custom components.
+- Use Sakai Vue as the admin/dashboard layout reference for sidebar, topbar, tables, and CRUD screens: `https://github.com/primefaces/sakai-vue`.
+- Do not copy the whole Sakai template by default; adapt layout ideas incrementally into the existing Vue + Vite client.
 - Keep UI practical and system-oriented rather than marketing-style.
 - Avoid decorative complexity unless the user asks for a more polished visual design.
 - Keep API calls centralized once the frontend grows beyond simple examples.
