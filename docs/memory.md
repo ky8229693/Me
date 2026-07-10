@@ -89,6 +89,23 @@ npm run build
 - Auth API helper。
 - Todo UI 的載入、新增、toggle 與刪除行為。
 
+E2E（需先啟動 local PostgreSQL 並套用 Identity migration）：
+
+```powershell
+cd src/WEB_Demo.Client
+npm run test:e2e:install
+npm run test:e2e
+```
+
+Playwright 會自動啟動或重用 API 與 Vue client。互動及逐步除錯指令：
+
+```powershell
+npm run test:e2e:ui
+npm run test:e2e:debug
+```
+
+目前 E2E 測試涵蓋 Chromium 上的註冊、登出、重新登入，以及 Todo 新增、完成與刪除流程。失敗時的 trace、screenshot、video 與 HTML report 會保留在 client 的測試輸出目錄。
+
 ## OpenSpec 現況
 
 - 目前沒有 active change。
@@ -98,12 +115,14 @@ npm run build
   - `openspec/changes/archive/2026-07-06-frontend-api-client-foundation`
   - `openspec/changes/archive/2026-07-06-frontend-test-foundation`
   - `openspec/changes/archive/2026-07-06-auth-foundation`
+  - `openspec/changes/archive/2026-07-10-e2e-test-foundation`
 - Main specs：
   - `openspec/specs/api-foundation/spec.md`
   - `openspec/specs/api-test-foundation/spec.md`
   - `openspec/specs/frontend-api-client-foundation/spec.md`
   - `openspec/specs/frontend-test-foundation/spec.md`
   - `openspec/specs/auth-foundation/spec.md`
+  - `openspec/specs/e2e-test-foundation/spec.md`
 
 ## 已完成的基礎建設
 
@@ -152,12 +171,10 @@ npm run build
    - 補充更完整的 authentication/authorization tests。
 3. `api-logging-foundation`
    - 導入正式的 structured logging，例如 Serilog。
-4. `e2e-test-foundation`
-   - 使用 Playwright 建立登入與 Todo 主要流程的 E2E tests。
-5. 前端後續能力
+4. 前端後續能力
    - 規模需要時再評估 Pinia。
    - 視需求加入 request cancellation、retry 或 cache。
-6. 測試治理
+5. 測試治理
    - 規劃 database tests 與 coverage threshold。
 
 暫不優先：
