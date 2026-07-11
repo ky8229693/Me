@@ -5,5 +5,5 @@ namespace WEB_Demo.Api.Services;
 
 public interface IJwtTokenService
 {
-    AuthResponse CreateToken(IdentityUser user);
+    Task<AuthResponse> CreateTokenAsync(IdentityUser user);
 }

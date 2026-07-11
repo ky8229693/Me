@@ -1,6 +1,9 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using FluentAssertions;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -29,6 +32,16 @@ public sealed class AuthEndpointsTests
         body.Data.Should().NotBeNull();
         body.Data!.AccessToken.Should().NotBeNullOrWhiteSpace();
         body.Data.User.Email.Should().Be(email);
+
+        var token = new JwtSecurityTokenHandler().ReadJwtToken(body.Data.AccessToken);
+        token.Claims.Should().Contain(claim =>
+            (claim.Type == ClaimTypes.Role || claim.Type == "role") && claim.Value == "User");
+
+        await using var scope = factory.Services.CreateAsyncScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>();
+        var user = await userManager.FindByEmailAsync(email);
+        user.Should().NotBeNull();
+        (await userManager.IsInRoleAsync(user!, "User")).Should().BeTrue();
     }
 
     [Fact]
@@ -48,6 +61,8 @@ public sealed class AuthEndpointsTests
 
     private static WebApplicationFactory<Program> CreateFactory()
     {
+        var databaseName = $"auth-tests-{Guid.NewGuid():N}";
+
         return new WebApplicationFactory<Program>()
             .WithWebHostBuilder(builder =>
             {
@@ -56,7 +71,7 @@ public sealed class AuthEndpointsTests
                 {
                     services.RemoveAll<DbContextOptions<AppDbContext>>();
                     services.AddDbContext<AppDbContext>(options =>
-                        options.UseInMemoryDatabase($"auth-tests-{Guid.NewGuid():N}"));
+                        options.UseInMemoryDatabase(databaseName));
                 });
             });
     }

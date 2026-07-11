@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Identity;
+using WEB_Demo.Api.Authorization;
 using WEB_Demo.Api.Models;
 using WEB_Demo.Api.Services;
 
@@ -38,9 +39,11 @@ public static class AuthEndpoints
                         ApiErrorCodes.ValidationError));
             }
 
+            await EnsureDefaultRoleAsync(user, userManager);
+
             return Results.Created(
                 "/api/auth/me",
-                ApiResponse<AuthResponse>.Ok(tokenService.CreateToken(user), "Registered."));
+                ApiResponse<AuthResponse>.Ok(await tokenService.CreateTokenAsync(user), "Registered."));
         });
 
         group.MapPost("/login", async (
@@ -65,7 +68,9 @@ public static class AuthEndpoints
                     statusCode: StatusCodes.Status401Unauthorized);
             }
 
-            return Results.Ok(ApiResponse<AuthResponse>.Ok(tokenService.CreateToken(user), "Logged in."));
+            await EnsureDefaultRoleAsync(user, userManager);
+
+            return Results.Ok(ApiResponse<AuthResponse>.Ok(await tokenService.CreateTokenAsync(user), "Logged in."));
         });
 
         group.MapGet("/me", (ClaimsPrincipal principal, UserManager<IdentityUser> userManager) =>
@@ -80,5 +85,23 @@ public static class AuthEndpoints
             Results.Ok(ApiResponse<object>.Ok(null, "Logged out.")));
 
         return endpoints;
+    }
+
+    private static async Task EnsureDefaultRoleAsync(
+        IdentityUser user,
+        UserManager<IdentityUser> userManager)
+    {
+        var roles = await userManager.GetRolesAsync(user);
+        if (roles.Count > 0)
+        {
+            return;
+        }
+
+        var result = await userManager.AddToRoleAsync(user, AppRoles.User);
+        if (!result.Succeeded)
+        {
+            var errors = string.Join(" ", result.Errors.Select(error => error.Description));
+            throw new InvalidOperationException($"Unable to assign the default user role. {errors}");
+        }
     }
 }

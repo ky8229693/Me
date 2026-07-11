@@ -37,10 +37,13 @@
 
 - Feature routes 位於 `Endpoints/*Endpoints.cs`：
   - `AuthEndpoints.cs`：註冊、登入、目前使用者。
+  - `AdminEndpoints.cs`：Admin-only 狀態 endpoint。
   - `TodoEndpoints.cs`：Todo CRUD。
   - `HealthEndpoints.cs`：健康檢查。
 - ASP.NET Core Identity 使用 `AppDbContext` 與 PostgreSQL 儲存帳號資料。
-- JWT bearer authentication 已註冊，API 可驗證 Access Token。
+- JWT bearer authentication 已註冊，API 可驗證 Access Token 與 Identity role claims。
+- API 啟動時會確保 `Admin`、`User` roles 存在；新帳號預設為 `User`。
+- `AdminOnly` policy 已保護 `/api/admin/status`，401 與 403 都使用共用 `ApiResponse<T>` envelope。
 - `InitialIdentitySchema` migration 已於 2026-07-06 套用至 local PostgreSQL `web_demo`。
 - Todo 資料目前仍由 `InMemoryTodoService` 保存，尚未持久化至資料庫。
 - 共用 response/error model 位於 `Models/`。
@@ -74,6 +77,7 @@ dotnet test WEB_Demo.sln
 - `InMemoryTodoService` create/read/toggle/delete。
 - API root、health、Todo 等基礎 routes。
 - 認證成功及未授權存取情境。
+- Role 初始化、JWT role claim、User 403 與 Admin policy 成功情境。
 
 Frontend：
 
@@ -108,7 +112,7 @@ npm run test:e2e:debug
 
 ## OpenSpec 現況
 
-- 目前沒有 active change。
+- Active change：`openspec/changes/authorization-foundation`。
 - 已 archive：
   - `openspec/changes/archive/2026-07-05-api-foundation`
   - `openspec/changes/archive/2026-07-05-api-test-foundation`
@@ -166,11 +170,12 @@ npm run test:e2e:debug
    - 將 Todo 從 `InMemoryTodoService` 移至 PostgreSQL。
    - 建立 Todo entity、EF Core migration 與 database tests。
    - 評估 Todo 是否需要與登入使用者建立 ownership 關係。
-2. `authorization-foundation`
-   - 規劃 Role、Permission 與 authorization policies。
-   - 補充更完整的 authentication/authorization tests。
-3. `api-logging-foundation`
+2. `api-logging-foundation`
    - 導入正式的 structured logging，例如 Serilog。
+3. Admin bootstrap 與進階授權
+   - 規劃第一個 production Admin 的安全建立流程。
+   - 未來視需求評估 Permission model 與 resource-based authorization。
+   - Todo 持久化後再實作使用者 ownership。
 4. 前端後續能力
    - 規模需要時再評估 Pinia。
    - 視需求加入 request cancellation、retry 或 cache。

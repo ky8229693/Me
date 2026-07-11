@@ -9,23 +9,28 @@ using WEB_Demo.Api.Options;
 
 namespace WEB_Demo.Api.Services;
 
-public sealed class JwtTokenService(IOptions<JwtOptions> options) : IJwtTokenService
+public sealed class JwtTokenService(
+    IOptions<JwtOptions> options,
+    UserManager<IdentityUser> userManager) : IJwtTokenService
 {
     private readonly JwtOptions _options = options.Value;
 
-    public AuthResponse CreateToken(IdentityUser user)
+    public async Task<AuthResponse> CreateTokenAsync(IdentityUser user)
     {
         var expiresAt = DateTimeOffset.UtcNow.AddMinutes(_options.AccessTokenMinutes);
         var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.SigningKey));
         var credentials = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256);
 
-        var claims = new[]
+        var claims = new List<Claim>
         {
             new Claim(JwtRegisteredClaimNames.Sub, user.Id),
             new Claim(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty),
             new Claim(ClaimTypes.NameIdentifier, user.Id),
             new Claim(ClaimTypes.Email, user.Email ?? string.Empty)
         };
+
+        var roles = await userManager.GetRolesAsync(user);
+        claims.AddRange(roles.Select(role => new Claim(ClaimTypes.Role, role)));
 
         var token = new JwtSecurityToken(
             issuer: _options.Issuer,

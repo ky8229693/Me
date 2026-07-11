@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using WEB_Demo.Api.Authorization;
 using WEB_Demo.Api.Data;
 using WEB_Demo.Api.Endpoints;
 using WEB_Demo.Api.Middleware;
@@ -63,12 +64,23 @@ builder.Services
                 context.Response.StatusCode = StatusCodes.Status401Unauthorized;
                 await context.Response.WriteAsJsonAsync(
                     ApiResponse<object>.Fail("Authentication is required.", ApiErrorCodes.Unauthorized));
+            },
+            OnForbidden = async context =>
+            {
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                await context.Response.WriteAsJsonAsync(
+                    ApiResponse<object>.Fail("You do not have permission to access this resource.", ApiErrorCodes.Forbidden));
             }
         };
     });
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy(AppPolicies.AdminOnly, policy =>
+        policy.RequireRole(AppRoles.Admin));
+});
 builder.Services.AddSingleton<ITodoService, InMemoryTodoService>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
+builder.Services.AddScoped<AppRoleInitializer>();
 builder.Services.AddHealthChecks();
 
 builder.Services.AddCors(options =>
@@ -87,6 +99,11 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
+using (var scope = app.Services.CreateScope())
+{
+    await scope.ServiceProvider.GetRequiredService<AppRoleInitializer>().InitializeAsync();
+}
+
 app.UseMiddleware<ApiExceptionHandlingMiddleware>();
 
 if (app.Environment.IsDevelopment())
@@ -101,6 +118,7 @@ app.UseAuthorization();
 
 app.MapGet("/", () => Results.Redirect("/swagger"));
 app.MapAuthEndpoints();
+app.MapAdminEndpoints();
 app.MapHealthEndpoints();
 app.MapTodoEndpoints();
 
