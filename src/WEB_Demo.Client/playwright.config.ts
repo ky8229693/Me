@@ -1,6 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const isCI = Boolean(process.env.CI);
+const apiUrl = process.env.E2E_API_URL ?? 'http://localhost:5196';
+const clientUrl = process.env.E2E_CLIENT_URL ?? 'http://127.0.0.1:5174';
 
 export default defineConfig({
   testDir: './e2e',
@@ -15,7 +17,7 @@ export default defineConfig({
     timeout: 5_000
   },
   use: {
-    baseURL: 'http://127.0.0.1:5173',
+    baseURL: clientUrl,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure'
@@ -28,18 +30,17 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: 'dotnet run -- bootstrap-admin --email e2e-admin@example.test --password-env E2E_ADMIN_PASSWORD && dotnet run --launch-profile http',
+      command: 'dotnet run --no-launch-profile',
       cwd: '../WEB_Demo.Api',
-      env: { E2E_ADMIN_PASSWORD: 'E2eAdmin123!' },
-      url: 'http://localhost:5186/api/health',
-      reuseExistingServer: !isCI,
+      url: `${apiUrl}/api/health`,
+      reuseExistingServer: false,
       timeout: 120_000
     },
     {
-      command: 'npm run dev -- --host 127.0.0.1 --port 5173 --strictPort',
+      command: 'npm run dev -- --host 127.0.0.1 --port 5174 --strictPort',
       cwd: '.',
-      url: 'http://127.0.0.1:5173',
-      reuseExistingServer: !isCI,
+      url: clientUrl,
+      reuseExistingServer: false,
       timeout: 120_000
     }
   ]

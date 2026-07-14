@@ -8,9 +8,10 @@
     "build": "vue-tsc -b && vite build",
     "preview": "vite preview",
     "test:unit": "vitest run",
-    "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui",
-    "test:e2e:debug": "playwright test --debug",
+    "test:e2e": "node scripts/run-e2e.mjs",
+    "test:e2e:runner": "node --test scripts/run-e2e.node.mjs",
+    "test:e2e:ui": "node scripts/run-e2e.mjs --ui",
+    "test:e2e:debug": "node scripts/run-e2e.mjs --debug",
     "test:e2e:install": "playwright install chromium"
   },
   "dependencies": {

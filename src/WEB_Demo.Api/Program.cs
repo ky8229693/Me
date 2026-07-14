@@ -8,6 +8,7 @@ using WEB_Demo.Api.Authorization;
 using WEB_Demo.Api.Bootstrap;
 using WEB_Demo.Api.Data;
 using WEB_Demo.Api.Endpoints;
+using WEB_Demo.Api.E2E;
 using WEB_Demo.Api.Middleware;
 using WEB_Demo.Api.Models;
 using WEB_Demo.Api.Options;
@@ -100,6 +101,7 @@ builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<AppRoleInitializer>();
 builder.Services.AddScoped<AdminBootstrapService>();
 builder.Services.AddScoped<AccountAdministrationService>();
+builder.Services.AddScoped<E2EDatabaseLifecycleService>();
 builder.Services.AddHealthChecks();
 
 builder.Services.AddCors(options =>
@@ -117,6 +119,39 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
+
+if (E2EDatabaseCommand.IsRequested(args))
+{
+    if (!E2EDatabaseCommand.TryParse(args, out var command, out var error))
+    {
+        Console.Error.WriteLine(error);
+        Environment.ExitCode = 1;
+        return;
+    }
+
+    await using var scope = app.Services.CreateAsyncScope();
+    var lifecycle = scope.ServiceProvider.GetRequiredService<E2EDatabaseLifecycleService>();
+    var result = command!.Action == "prepare"
+        ? await lifecycle.PrepareAsync(command.DatabaseName)
+        : await lifecycle.CleanupAsync(command.DatabaseName);
+
+    if (result.Succeeded && command.Action == "prepare")
+    {
+        await scope.ServiceProvider.GetRequiredService<AppRoleInitializer>().InitializeAsync();
+        var password = command.ReadPassword();
+        var bootstrap = string.IsNullOrWhiteSpace(password)
+            ? AdminBootstrapResult.Failure("The E2E Admin password environment variable is missing.")
+            : await scope.ServiceProvider.GetRequiredService<AdminBootstrapService>()
+                .BootstrapAsync(command.AdminEmail!, password, false);
+        result = bootstrap.Succeeded
+            ? result
+            : E2EDatabaseResult.Failure(bootstrap.Message);
+    }
+
+    (result.Succeeded ? Console.Out : Console.Error).WriteLine(result.Message);
+    Environment.ExitCode = result.Succeeded ? 0 : 1;
+    return;
+}
 
 using (var scope = app.Services.CreateScope())
 {

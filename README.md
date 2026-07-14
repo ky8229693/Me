@@ -1,75 +1,39 @@
 # WEB_Demo
 
-技術組合：
+ASP.NET Core Web API 與 Vue 3 後台示範專案，使用 OpenSpec 進行 spec-driven development。
 
-- Backend: ASP.NET Core Web API (.NET 8 LTS)
-- Frontend: Vue 3 + TypeScript + Vite
-- UI: Element Plus
-- SDD: OpenSpec
+## Stack
 
-## 專案結構
+- Backend：ASP.NET Core Web API on .NET 8 LTS
+- Frontend：Vue 3、TypeScript、Vite
+- UI：PrimeVue、PrimeIcons、Aura theme
+- Database：PostgreSQL、Entity Framework Core
+- Authentication：ASP.NET Core Identity、JWT
+- Tests：xUnit、Vitest、Vue Test Utils、Playwright
+
+## Project Structure
 
 ```text
 WEB_Demo/
-  src/
-    WEB_Demo.Api/       ASP.NET Core Web API
-    WEB_Demo.Client/    Vue 3 + TypeScript 前端
-  tests/
-    WEB_Demo.Api.Tests/ API 單元測試與 integration tests
+├─ src/
+│  ├─ WEB_Demo.Api/       ASP.NET Core Web API
+│  └─ WEB_Demo.Client/    Vue 3 frontend
+├─ tests/
+│  └─ WEB_Demo.Api.Tests/ Backend unit and integration tests
+├─ openspec/              Specifications and change artifacts
+└─ docs/                  Project context and guides
 ```
 
-## 後端
+## Quick Start
+
+Backend：
 
 ```powershell
 cd src/WEB_Demo.Api
 dotnet run
 ```
 
-網址：
-
-```text
-API:     http://localhost:5186
-Swagger: http://localhost:5186/swagger
-```
-
-目前 API：
-
-```text
-GET    /api/health
-POST   /api/auth/register
-POST   /api/auth/login
-GET    /api/auth/me
-POST   /api/auth/logout
-GET    /api/todos
-POST   /api/todos
-PATCH  /api/todos/{id}/toggle
-DELETE /api/todos/{id}
-```
-
-## 資料庫與登入
-
-Local development 使用 PostgreSQL：
-
-```text
-Database: web_demo
-Host:     localhost
-Port:     5432
-Username: postgres
-Password: 1234
-```
-
-登入系統使用 ASP.NET Core Identity + EF Core migrations 建立資料表，不手刻登入 table。
-
-Migration 工具使用 repo-local `dotnet-ef`：
-
-```powershell
-dotnet tool restore
-dotnet tool run dotnet-ef database update --project src/WEB_Demo.Api/WEB_Demo.Api.csproj --startup-project src/WEB_Demo.Api/WEB_Demo.Api.csproj
-```
-
-目前已套用 `InitialIdentitySchema` migration，local DB 內已建立 ASP.NET Core Identity tables。
-
-## 前端
+Frontend：
 
 ```powershell
 cd src/WEB_Demo.Client
@@ -77,37 +41,30 @@ npm install
 npm run dev
 ```
 
-網址：
+- API：`http://localhost:5186`
+- Swagger：`http://localhost:5186/swagger`
+- Frontend：`http://127.0.0.1:5173`
 
-```text
-http://127.0.0.1:5173
-```
+## Documentation
 
-Vite proxy：
+- [Project instructions](AGENTS.md)：技術棧、開發規範與驗證指令。
+- [Development guide](docs/development.md)：本機啟動、資料庫、測試、Admin bootstrap 與工具操作。
+- [UI guidelines](docs/ui-guidelines.md)：PrimeVue 與 Sakai Vue 參考原則。
+- [Project memory](docs/memory.md)：長期架構決策、安全取捨與當前限制。
+- [OpenSpec](openspec/)：主規格、active changes 與 archived changes。
 
-```text
-/api -> http://localhost:5186
-```
-
-## 測試
+## Validation
 
 ```powershell
 dotnet test WEB_Demo.sln
 ```
 
-目前測試範圍：
-
-- `InMemoryTodoService` 單元測試
-- `/` redirect 到 `/swagger`
-- `GET /api/health`
-- `GET /api/todos`
-- `POST /api/auth/register`
-- `GET /api/auth/me` unauthorized behavior
-
-## OpenSpec
+```powershell
+cd src/WEB_Demo.Client
+npm run test:unit
+npm run build
+```
 
 ```powershell
-npm run spec:doctor
-npm run spec:list
 npm run spec:validate
 ```

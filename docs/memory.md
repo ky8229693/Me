@@ -1,237 +1,54 @@
 # Project Memory
 
-最後更新：2026-07-10
+最後更新：2026-07-14
 
-本文件記錄專案目前狀態、重要決策、已完成的 OpenSpec change，以及後續工作。開發規範以 `AGENTS.md` 為準；本文件補充專案脈絡與歷史。
+本文件只記錄無法輕易從程式碼看出、跨 OpenSpec changes 仍有價值的專案脈絡。開發規範以 [`AGENTS.md`](../AGENTS.md) 為準；指令與環境設定請見 [`development.md`](development.md)，前端設計原則請見 [`ui-guidelines.md`](ui-guidelines.md)。目前 change 與歷史紀錄應使用 OpenSpec CLI 與 `openspec/changes/archive/` 查詢，不在此手動維護清單。
 
-## 專案概況
+## 核心架構決策
 
-- 專案名稱：`WEB_Demo`
-- 後端：ASP.NET Core Web API on .NET 8 LTS
-- 前端：Vue 3 + TypeScript + Vite
-- UI：PrimeVue、`primeicons`、`@primeuix/themes`（Aura theme）
-- 資料庫：PostgreSQL
-- 開發模式：HTTP only
-- API：`http://localhost:5186`
-- Swagger：`http://localhost:5186/swagger`
-- Frontend：`http://127.0.0.1:5173`
-- Vite proxy：`/api` 轉送至 `http://localhost:5186`
+- API 暫時維持 Minimal APIs；只有當規模與路由複雜度產生實際需求時才評估 Controllers。
+- API payload 使用共用 `ApiResponse<T>` envelope，同時保留正確 HTTP status code。
+- `Program.cs` 聚焦 service registration、middleware、Swagger、CORS 與 endpoint wiring；feature routes、logic 與 cross-cutting concerns 分開放置。
+- PostgreSQL 是預設持久化資料庫；schema 透過 EF Core migrations 管理。
+- 認證使用 ASP.NET Core Identity 與 JWT，不建立自行維護的密碼資料表。
+- Local development 維持 HTTP only，不主動導入 HTTPS。
+- Todo 目前仍由 `InMemoryTodoService` 保存；持久化與使用者 ownership 應由後續獨立 change 處理。
 
-## 已確認決策
+## 認證與管理安全決策
 
-- API routes 維持 `/api/*`，根路徑 `/` redirect 至 `/swagger`。
-- API 暫時使用 Minimal APIs；等規模確實需要時再評估 controllers。
-- API response 使用共用 `ApiResponse<T>` envelope，同時保留正確的 HTTP status code。
-- `Program.cs` 聚焦 service registration、middleware、Swagger、CORS 與 endpoint wiring。
-- CORS allowed origins 從 `appsettings.*.json` 的 `Cors:AllowedOrigins` 讀取。
-- 健康檢查使用 ASP.NET Core Health Checks，路由為 `/api/health`。
-- 開發環境維持 HTTP only，不主動導入 HTTPS。
-- PostgreSQL 是預設資料庫；local 使用 DB `web_demo`、port `5432`、帳號 `postgres`、密碼 `1234`。
-- 認證使用 ASP.NET Core Identity、EF Core、PostgreSQL 與 JWT；資料表透過 EF Core migrations 建立。
-- Local registration 開放，前端提供登入及註冊 UI。
-- 前端使用 Vue 3 Composition API、TypeScript 與 PrimeVue。
-- Git commit 使用 Conventional Commits，內容說明使用中文。
-- 新功能或行為變更優先使用 OpenSpec SDD；小型文件、錯字與機械性修改可直接處理。
+- API 啟動時確保固定的 `Admin`、`User` roles 存在；新帳號預設取得 `User`。
+- JWT 包含 Identity roles 與 security stamp。每次 authenticated request 會查詢目前使用者，拒絕不存在、停用或 stamp 不一致的 token。
+- 帳號停用、重新啟用或角色異動會更新 security stamp，使舊 token 在下一次受保護 request 立即失效。
+- 人工停用目前沿用 Identity lockout 欄位；若未來加入登入失敗自動鎖定，需評估改用獨立的 active status。
+- 第一位 Admin 只能透過非 HTTP 的 `bootstrap-admin` command 建立或提升；系統不提供預設 Admin credentials 或匿名 bootstrap API。
+- 管理操作禁止 Admin 停用自己、移除自己的 Admin role，並保護最後一位啟用中的 Admin。
+- 前端依 roles 控制導覽可見性只屬 UX；所有管理 API 仍以 `AdminOnly` policy 作為安全邊界。
+- Security stamp validation 目前讓每個 authenticated request 多一次 indexed user lookup；有實際效能壓力時再評估短效 access token、refresh token 或 token-version cache。
 
-## Backend 現況
+## 前端與 UI 原則
 
-- Feature routes 位於 `Endpoints/*Endpoints.cs`：
-  - `AuthEndpoints.cs`：註冊、登入、目前使用者。
-  - `AdminEndpoints.cs`：Admin-only 狀態 endpoint。
-  - `TodoEndpoints.cs`：Todo CRUD。
-  - `HealthEndpoints.cs`：健康檢查。
-- ASP.NET Core Identity 使用 `AppDbContext` 與 PostgreSQL 儲存帳號資料。
-- JWT bearer authentication 已註冊，API 可驗證 Access Token 與 Identity role claims。
-- API 啟動時會確保 `Admin`、`User` roles 存在；新帳號預設為 `User`。
-- `AdminOnly` policy 已保護 `/api/admin/status`，401 與 403 都使用共用 `ApiResponse<T>` envelope。
-- JWT 包含 security stamp；每次 authenticated request 會查詢目前 Identity user，停用帳號或角色異動後舊 token 立即失效。
-- 第一位 Admin 透過非 HTTP 的 `bootstrap-admin` command 建立；系統不提供預設 Admin 帳密或匿名 bootstrap endpoint。
-- `/api/admin/users` 提供 Admin-only 帳號搜尋、分頁、啟用／停用與固定 `Admin`／`User` role 指派。
-- `InitialIdentitySchema` migration 已於 2026-07-06 套用至 local PostgreSQL `web_demo`。
-- Todo 資料目前仍由 `InMemoryTodoService` 保存，尚未持久化至資料庫。
-- 共用 response/error model 位於 `Models/`。
-- 集中式例外處理位於 `Middleware/ApiExceptionHandlingMiddleware.cs`。
-- CORS 與 JWT 設定類別位於 `Options/`。
+- 前端使用 Vue 3 Composition API、TypeScript、PrimeVue styled mode 與 Aura theme。
+- 後台 layout 參考 Sakai Vue 的 topbar、sidebar、menu、table 與 CRUD 組合，但不直接複製完整 template。
+- Layout 元件保持拆分；desktop sidebar collapse 與 mobile overlay drawer 應使用不同語意的狀態。
+- 導覽由資料模型產生並由 layout 集中管理 active state 與授權可見性。
+- 常見操作優先使用現有 PrimeVue components，視覺沿用 Aura theme 與既有 CSS variables，避免沒有需求的額外 UI dependencies。
+- 新增 UI 互動時補 unit tests；desktop 與 mobile 行為不同時，至少固定 state class、navigation event 與授權顯示條件。
 
-## Frontend 現況
+## 當前技術限制
 
-- PrimeVue plugin 與 Aura theme 在 `src/WEB_Demo.Client/src/main.ts` 註冊。
-- PrimeVue components 在各 Vue SFC 中按需 import。
-- 全域樣式位於 `src/WEB_Demo.Client/src/styles/`，並使用 Tailwind CSS、SCSS 與 PrimeVue styled mode。
-- `App.vue` 管理登入狀態，依狀態顯示 `LoginView` 或後台 layout。
-- 後台 layout 已拆成 topbar、sidebar、menu 與主要內容區。
-- API calls 集中於 `src/WEB_Demo.Client/src/api/`：
-  - `http.ts`：shared fetch helper、`ApiResponse<T>` 解析、錯誤處理及 Bearer Token。
-  - `auth.ts` / `authToken.ts`：登入、註冊、目前使用者及 Token 管理。
-  - `todos.ts`：Todo API calls。
-- 前端測試使用 Vitest、jsdom 與 Vue Test Utils。
+- Todo 尚未持久化，也尚未與登入使用者建立 ownership。
+- 授權只有固定 roles，尚無自訂 role CRUD、Permission model、user-specific permissions 或 resource-based authorization。
+- JWT 尚無 refresh token 與集中式 token-version cache。
+- 人工停用與未來可能加入的登入失敗 lockout 尚未拆成不同狀態。
+- E2E 使用現有 PostgreSQL server，但每個完整 Playwright run 建立唯一的 `web_demo_e2e_*` database；測試服務使用獨立 ports，結束後刪除整個 database。
+- Frontend 尚未導入 Pinia、request cancellation、retry 或 cache；只有規模產生需求時才評估。
 
-## 測試與驗證
+## 後續方向
 
-Backend：
+- Todo PostgreSQL persistence、migration 與 ownership。
+- E2E 每次 run 建立及清除獨立 PostgreSQL database。
+- 正式 structured logging。
+- Permission model 與 resource-based authorization。
+- 登入失敗 lockout 與人工停用狀態分離。
 
-```powershell
-dotnet build
-dotnet test WEB_Demo.sln
-```
-
-目前後端測試涵蓋：
-
-- `InMemoryTodoService` create/read/toggle/delete。
-- API root、health、Todo 等基礎 routes。
-- 認證成功及未授權存取情境。
-- Role 初始化、JWT role claim、User 403 與 Admin policy 成功情境。
-
-Frontend：
-
-```powershell
-cd src/WEB_Demo.Client
-npm run test:unit
-npm run build
-```
-
-目前前端測試涵蓋：
-
-- Shared API client 的成功及錯誤 envelope、JSON body 與 Bearer Token。
-- Auth API helper。
-- Todo UI 的載入、新增、toggle 與刪除行為。
-
-E2E（需先啟動 local PostgreSQL 並套用 Identity migration）：
-
-```powershell
-cd src/WEB_Demo.Client
-npm run test:e2e:install
-npm run test:e2e
-```
-
-Playwright 會自動啟動或重用 API 與 Vue client。互動及逐步除錯指令：
-
-```powershell
-npm run test:e2e:ui
-npm run test:e2e:debug
-```
-
-目前 E2E 測試涵蓋 Chromium 上的註冊、登出、重新登入，以及 Todo 新增、完成與刪除流程。失敗時的 trace、screenshot、video 與 HTML report 會保留在 client 的測試輸出目錄。
-
-## OpenSpec 現況
-
-- Active change：`openspec/changes/identity-administration-foundation`。
-- 已 archive：
-  - `openspec/changes/archive/2026-07-11-authorization-foundation`
-  - `openspec/changes/archive/2026-07-05-api-foundation`
-  - `openspec/changes/archive/2026-07-05-api-test-foundation`
-  - `openspec/changes/archive/2026-07-06-frontend-api-client-foundation`
-  - `openspec/changes/archive/2026-07-06-frontend-test-foundation`
-  - `openspec/changes/archive/2026-07-06-auth-foundation`
-  - `openspec/changes/archive/2026-07-10-e2e-test-foundation`
-- Main specs：
-  - `openspec/specs/api-foundation/spec.md`
-  - `openspec/specs/api-test-foundation/spec.md`
-  - `openspec/specs/frontend-api-client-foundation/spec.md`
-  - `openspec/specs/frontend-test-foundation/spec.md`
-  - `openspec/specs/auth-foundation/spec.md`
-  - `openspec/specs/e2e-test-foundation/spec.md`
-
-## 已完成的基礎建設
-
-### API foundation
-
-- Endpoint、service、options、middleware 等結構已拆分。
-- Todo in-memory state 已移至 service。
-- 已加入集中式例外處理、CORS 設定與 Health Checks。
-- 保留 Swagger、`ApiResponse<T>` envelope 與 HTTP-only local development。
-
-### API test foundation
-
-- 已建立 xUnit test project。
-- 使用 FluentAssertions 與 `Microsoft.AspNetCore.Mvc.Testing`。
-- 已建立 service unit tests 與基礎 API integration tests。
-
-### Frontend API client foundation
-
-- 已建立共用 `fetch` helper 與 TypeScript API types。
-- 已集中 Todo API calls，統一處理 HTTP 及 envelope errors。
-- Shared helper 已支援 JWT Bearer Token。
-
-### Frontend test foundation
-
-- 已建立 Vitest、jsdom 與 Vue Test Utils 測試環境。
-- 已加入 shared API client、auth client 與 Todo UI tests。
-
-### Auth foundation
-
-- 已導入 ASP.NET Core Identity、EF Core、Npgsql 與 JWT bearer authentication。
-- 已建立 Identity migration 並套用至 local PostgreSQL。
-- 已完成 register、login、current-user endpoints。
-- 已完成前端登入、註冊、登出、Token 儲存與 authenticated API request。
-- 已加入後端及前端認證基礎測試。
-
-## 尚未完成／候選下一步
-
-以下項目尚未納入 active change；實作前應依範圍建立新的 OpenSpec proposal：
-
-1. `todo-persistence-foundation`
-   - 將 Todo 從 `InMemoryTodoService` 移至 PostgreSQL。
-   - 建立 Todo entity、EF Core migration 與 database tests。
-   - 評估 Todo 是否需要與登入使用者建立 ownership 關係。
-2. `api-logging-foundation`
-   - 導入正式的 structured logging，例如 Serilog。
-3. Admin bootstrap 與進階授權
-   - 第一個 Admin bootstrap、帳號管理與固定角色指派已納入 active change。
-   - 未來視需求評估 Permission model 與 resource-based authorization。
-   - Todo 持久化後再實作使用者 ownership。
-4. 前端後續能力
-   - 規模需要時再評估 Pinia。
-   - 視需求加入 request cancellation、retry 或 cache。
-5. 測試治理
-   - 規劃 database tests 與 coverage threshold。
-
-暫不優先：
-
-- Minimal APIs migration to controllers。
-- 大型 DTO restructuring。
-- Axios 等新的 HTTP client runtime dependency。
-
-## Frontend Layout Reference
-
-- 前端 UI 已於 2026-07-10 從 Element Plus 遷移至 PrimeVue。
-- 預設使用 PrimeVue styled mode 與 Aura theme。
-- Admin/dashboard layout 參考 Sakai Vue：
-  - GitHub：https://github.com/primefaces/sakai-vue
-  - Preview：https://sakai.primevue.org/
-- Sakai Vue 僅作為 sidebar、topbar、dashboard、table 與 CRUD 畫面的設計參考。
-- 不預設複製完整 Sakai template；應漸進整合，保留既有 API modules、tests 與專案結構。
-
-## VS Code 與工具備註
-
-- `.vscode/tasks.json` 與 `.vscode/launch.json` 已提供 full-stack debug 設定。
-- `Debug Full Stack` 可同時啟動 API 與 Vue client；停止時會清理 API 與 client processes。
-- .NET SDK 8.0.422 與 Node.js 24.18.0 LTS 曾透過 winget 安裝。
-- 若 `dotnet` 找不到，通常需要重啟 terminal 或 VS Code 以刷新 PATH。
-- EF Core migration 使用 repo-local `dotnet-ef`：
-
-```powershell
-dotnet tool restore
-dotnet tool run dotnet-ef database update --project src/WEB_Demo.Api/WEB_Demo.Api.csproj --startup-project src/WEB_Demo.Api/WEB_Demo.Api.csproj
-```
-
-- 建立第一位 Admin（互動式隱藏輸入密碼）：
-
-```powershell
-cd src/WEB_Demo.Api
-dotnet run -- bootstrap-admin --email admin@example.com
-```
-
-- 自動部署可用一次性環境變數，但不得寫入 tracked settings 或 logs：
-
-```powershell
-$env:ADMIN_BOOTSTRAP_PASSWORD="<one-time-secret>"
-dotnet run -- bootstrap-admin --email admin@example.com --password-env ADMIN_BOOTSTRAP_PASSWORD
-Remove-Item Env:ADMIN_BOOTSTRAP_PASSWORD
-```
-
-- 提升系統中既有帳號為第一位 Admin 必須明確加上 `--confirm-existing`。若已有其他 Admin，command 會拒絕變更，日常角色調整一律使用 authenticated Admin API。
-- Security stamp validation 目前會讓每個 authenticated request 多一次 indexed Identity user lookup；流量成長後再評估短效 access token、refresh token 或 token-version cache。
-
-- 中文文件使用 UTF-8；PowerShell 驗證時可使用 `Get-Content -Encoding UTF8`。
-- OpenSpec spec/tasks 應包含合理的單元測試規劃；若延後測試，需在 proposal、design 或 tasks 中清楚記錄。
+這些方向不是承諾中的 active scope；開始實作前仍需建立或確認對應 OpenSpec change。

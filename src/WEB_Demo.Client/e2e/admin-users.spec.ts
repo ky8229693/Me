@@ -37,7 +37,8 @@ test('一般使用者看不到管理入口且管理 API 回傳 403', async ({ pa
 
   await expect(page.getByRole('button', { name: 'User Management' })).toHaveCount(0);
   const token = await page.evaluate(() => window.localStorage.getItem('web_demo.auth_token'));
-  const response = await page.request.get('http://localhost:5186/api/admin/users', {
+  const apiUrl = process.env.E2E_API_URL ?? 'http://localhost:5196';
+  const response = await page.request.get(`${apiUrl}/api/admin/users`, {
     headers: { Authorization: `Bearer ${token}` }
   });
 

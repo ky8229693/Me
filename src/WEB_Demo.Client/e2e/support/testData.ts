@@ -5,8 +5,8 @@ export interface E2ETestData {
 }
 
 export const e2eAdmin = {
-  email: 'e2e-admin@example.test',
-  password: 'E2eAdmin123!'
+  email: process.env.E2E_ADMIN_EMAIL ?? 'e2e-admin@example.test',
+  password: process.env.E2E_ADMIN_PASSWORD ?? ''
 } as const;
 
 export function createE2ETestData(): E2ETestData {
