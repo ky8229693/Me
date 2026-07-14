@@ -1,9 +1,11 @@
+using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using WEB_Demo.Api.Authorization;
+using WEB_Demo.Api.Bootstrap;
 using WEB_Demo.Api.Data;
 using WEB_Demo.Api.Endpoints;
 using WEB_Demo.Api.Middleware;
@@ -58,6 +60,21 @@ builder.Services
         };
         options.Events = new JwtBearerEvents
         {
+            OnTokenValidated = async context =>
+            {
+                var userManager = context.HttpContext.RequestServices
+                    .GetRequiredService<UserManager<IdentityUser>>();
+                var userId = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
+                var tokenStamp = context.Principal?.FindFirstValue(AppClaimTypes.SecurityStamp);
+                var user = userId is null ? null : await userManager.FindByIdAsync(userId);
+
+                if (user is null || await userManager.IsLockedOutAsync(user) ||
+                    string.IsNullOrEmpty(tokenStamp) ||
+                    !string.Equals(user.SecurityStamp, tokenStamp, StringComparison.Ordinal))
+                {
+                    context.Fail("The token is no longer valid.");
+                }
+            },
             OnChallenge = async context =>
             {
                 context.HandleResponse();
@@ -81,6 +98,8 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddSingleton<ITodoService, InMemoryTodoService>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<AppRoleInitializer>();
+builder.Services.AddScoped<AdminBootstrapService>();
+builder.Services.AddScoped<AccountAdministrationService>();
 builder.Services.AddHealthChecks();
 
 builder.Services.AddCors(options =>
@@ -102,6 +121,26 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     await scope.ServiceProvider.GetRequiredService<AppRoleInitializer>().InitializeAsync();
+}
+
+if (AdminBootstrapCommand.IsRequested(args))
+{
+    if (!AdminBootstrapCommand.TryParse(args, out var command, out var error))
+    {
+        Console.Error.WriteLine(error);
+        Environment.ExitCode = 1;
+        return;
+    }
+
+    await using var scope = app.Services.CreateAsyncScope();
+    var service = scope.ServiceProvider.GetRequiredService<AdminBootstrapService>();
+    var existingUserManager = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>();
+    var existingUser = await existingUserManager.FindByEmailAsync(command!.Email.Trim());
+    var password = existingUser is null ? command.ReadPassword() : null;
+    var result = await service.BootstrapAsync(command.Email, password, command.ConfirmExistingUser);
+    (result.Succeeded ? Console.Out : Console.Error).WriteLine(result.Message);
+    Environment.ExitCode = result.Succeeded ? 0 : 1;
+    return;
 }
 
 app.UseMiddleware<ApiExceptionHandlingMiddleware>();

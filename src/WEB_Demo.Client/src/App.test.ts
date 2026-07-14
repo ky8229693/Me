@@ -23,6 +23,12 @@ vi.mock('./api/todos', () => ({
   deleteTodo: vi.fn()
 }));
 
+vi.mock('./api/adminUsers', () => ({
+  getAdminUsers: vi.fn().mockResolvedValue({ items: [], page: 1, pageSize: 10, totalCount: 0 }),
+  setAdminUserEnabled: vi.fn(),
+  setAdminUserRoles: vi.fn()
+}));
+
 const getCurrentUserMock = vi.mocked(authApi.getCurrentUser);
 const loginMock = vi.mocked(authApi.login);
 const getTodosMock = vi.mocked(todoApi.getTodos);
@@ -66,7 +72,7 @@ describe('App', () => {
   });
 
   it('loads todos when the dashboard is mounted', async () => {
-    getCurrentUserMock.mockResolvedValue({ id: '1', email: 'user@example.com' });
+    getCurrentUserMock.mockResolvedValue({ id: '1', email: 'user@example.com', roles: ['User'] });
 
     mountApp();
     await flushPromises();
@@ -74,9 +80,37 @@ describe('App', () => {
     expect(getTodosMock).toHaveBeenCalledOnce();
   });
 
+  it('shows user management navigation only for Admin users', async () => {
+    getCurrentUserMock.mockResolvedValue({ id: '1', email: 'admin@example.com', roles: ['User', 'Admin'] });
+    const wrapper = mountApp();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('User Management');
+
+    getCurrentUserMock.mockResolvedValue({ id: '2', email: 'user@example.com', roles: ['User'] });
+    const userWrapper = mountApp();
+    await flushPromises();
+    expect(userWrapper.text()).not.toContain('User Management');
+  });
+
+  it('toggles the desktop sidebar from the navigation button', async () => {
+    getCurrentUserMock.mockResolvedValue({ id: '1', email: 'user@example.com', roles: ['User'] });
+    const wrapper = mountApp();
+    await flushPromises();
+
+    const layout = wrapper.find('.layout-wrapper');
+    const toggle = wrapper.find('button[aria-label="Toggle navigation"]');
+
+    expect(layout.classes()).not.toContain('layout-sidebar-collapsed');
+    await toggle.trigger('click');
+    expect(layout.classes()).toContain('layout-sidebar-collapsed');
+    await toggle.trigger('click');
+    expect(layout.classes()).not.toContain('layout-sidebar-collapsed');
+  });
+
   it('creates a todo with the entered title', async () => {
     const createdTodo: TodoItem = { id: 2, title: 'New todo', isDone: false };
-    getCurrentUserMock.mockResolvedValue({ id: '1', email: 'user@example.com' });
+    getCurrentUserMock.mockResolvedValue({ id: '1', email: 'user@example.com', roles: ['User'] });
     createTodoMock.mockResolvedValue(createdTodo);
 
     const wrapper = mountApp();
@@ -105,7 +139,7 @@ describe('App', () => {
 
   it('toggles and deletes todos through the Todo API module', async () => {
     const todo: TodoItem = { id: 1, title: 'Existing todo', isDone: false };
-    getCurrentUserMock.mockResolvedValue({ id: '1', email: 'user@example.com' });
+    getCurrentUserMock.mockResolvedValue({ id: '1', email: 'user@example.com', roles: ['User'] });
     getTodosMock.mockResolvedValue([todo]);
     toggleTodoMock.mockResolvedValue({ ...todo, isDone: true });
 

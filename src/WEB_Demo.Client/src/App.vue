@@ -6,11 +6,14 @@ import { getCurrentUser, logout } from './api/auth';
 import type { AuthUser } from './api/types';
 import AppLayout from './layout/AppLayout.vue';
 import DashboardView from './views/DashboardView.vue';
+import AdminUsersView from './views/AdminUsersView.vue';
 import LoginView from './views/LoginView.vue';
+import type { MenuItem } from './layout/types';
 
 const toast = useToast();
 const authUser = ref<AuthUser | null>(null);
 const dashboardRefreshKey = ref(0);
+const activeView = ref<MenuItem['id']>('dashboard');
 
 async function loadCurrentUser() {
   try {
@@ -23,6 +26,7 @@ async function loadCurrentUser() {
 
 function handleAuthenticated(user: AuthUser) {
   authUser.value = user;
+  activeView.value = 'dashboard';
   dashboardRefreshKey.value += 1;
 }
 
@@ -33,6 +37,7 @@ function refreshDashboard() {
 function signOut() {
   logout();
   authUser.value = null;
+  activeView.value = 'dashboard';
   toast.add({ severity: 'success', detail: 'Signed out.', life: 2600 });
 }
 
@@ -44,7 +49,15 @@ onMounted(loadCurrentUser);
 
   <LoginView v-if="!authUser" @authenticated="handleAuthenticated" />
 
-  <AppLayout v-else :user="authUser" @refresh="refreshDashboard" @logout="signOut">
-    <DashboardView :refresh-key="dashboardRefreshKey" />
+  <AppLayout
+    v-else
+    :user="authUser"
+    :active-view="activeView"
+    @navigate="activeView = $event"
+    @refresh="refreshDashboard"
+    @logout="signOut"
+  >
+    <AdminUsersView v-if="activeView === 'users' && authUser.roles.includes('Admin')" :current-user-id="authUser.id" />
+    <DashboardView v-else :refresh-key="dashboardRefreshKey" />
   </AppLayout>
 </template>

@@ -28,8 +28,9 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: 'dotnet run --launch-profile http',
+      command: 'dotnet run -- bootstrap-admin --email e2e-admin@example.test --password-env E2E_ADMIN_PASSWORD && dotnet run --launch-profile http',
       cwd: '../WEB_Demo.Api',
+      env: { E2E_ADMIN_PASSWORD: 'E2eAdmin123!' },
       url: 'http://localhost:5186/api/health',
       reuseExistingServer: !isCI,
       timeout: 120_000

@@ -29,6 +29,7 @@ export type CreateTodoRequest = {
 export type AuthUser = {
   id: string;
   email: string;
+  roles: string[];
 };
 
 export type AuthResponse = {
@@ -45,4 +46,18 @@ export type RegisterRequest = {
 export type LoginRequest = {
   email: string;
   password: string;
+};
+
+export type AdminUser = {
+  id: string;
+  email: string;
+  isEnabled: boolean;
+  roles: string[];
+};
+
+export type PagedResult<T> = {
+  items: T[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
 };

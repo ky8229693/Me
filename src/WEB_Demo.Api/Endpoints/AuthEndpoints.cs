@@ -73,12 +73,14 @@ public static class AuthEndpoints
             return Results.Ok(ApiResponse<AuthResponse>.Ok(await tokenService.CreateTokenAsync(user), "Logged in."));
         });
 
-        group.MapGet("/me", (ClaimsPrincipal principal, UserManager<IdentityUser> userManager) =>
+        group.MapGet("/me", async (ClaimsPrincipal principal, UserManager<IdentityUser> userManager) =>
         {
             var userId = userManager.GetUserId(principal);
             var email = principal.FindFirstValue(ClaimTypes.Email) ?? string.Empty;
+            var user = userId is null ? null : await userManager.FindByIdAsync(userId);
+            var roles = user is null ? [] : await userManager.GetRolesAsync(user);
 
-            return Results.Ok(ApiResponse<AuthUser>.Ok(new AuthUser(userId ?? string.Empty, email)));
+            return Results.Ok(ApiResponse<AuthUser>.Ok(new AuthUser(userId ?? string.Empty, email, roles.ToArray())));
         }).RequireAuthorization();
 
         group.MapPost("/logout", () =>

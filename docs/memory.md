@@ -44,6 +44,9 @@
 - JWT bearer authentication 已註冊，API 可驗證 Access Token 與 Identity role claims。
 - API 啟動時會確保 `Admin`、`User` roles 存在；新帳號預設為 `User`。
 - `AdminOnly` policy 已保護 `/api/admin/status`，401 與 403 都使用共用 `ApiResponse<T>` envelope。
+- JWT 包含 security stamp；每次 authenticated request 會查詢目前 Identity user，停用帳號或角色異動後舊 token 立即失效。
+- 第一位 Admin 透過非 HTTP 的 `bootstrap-admin` command 建立；系統不提供預設 Admin 帳密或匿名 bootstrap endpoint。
+- `/api/admin/users` 提供 Admin-only 帳號搜尋、分頁、啟用／停用與固定 `Admin`／`User` role 指派。
 - `InitialIdentitySchema` migration 已於 2026-07-06 套用至 local PostgreSQL `web_demo`。
 - Todo 資料目前仍由 `InMemoryTodoService` 保存，尚未持久化至資料庫。
 - 共用 response/error model 位於 `Models/`。
@@ -112,8 +115,9 @@ npm run test:e2e:debug
 
 ## OpenSpec 現況
 
-- Active change：`openspec/changes/authorization-foundation`。
+- Active change：`openspec/changes/identity-administration-foundation`。
 - 已 archive：
+  - `openspec/changes/archive/2026-07-11-authorization-foundation`
   - `openspec/changes/archive/2026-07-05-api-foundation`
   - `openspec/changes/archive/2026-07-05-api-test-foundation`
   - `openspec/changes/archive/2026-07-06-frontend-api-client-foundation`
@@ -173,7 +177,7 @@ npm run test:e2e:debug
 2. `api-logging-foundation`
    - 導入正式的 structured logging，例如 Serilog。
 3. Admin bootstrap 與進階授權
-   - 規劃第一個 production Admin 的安全建立流程。
+   - 第一個 Admin bootstrap、帳號管理與固定角色指派已納入 active change。
    - 未來視需求評估 Permission model 與 resource-based authorization。
    - Todo 持久化後再實作使用者 ownership。
 4. 前端後續能力
@@ -210,6 +214,24 @@ npm run test:e2e:debug
 dotnet tool restore
 dotnet tool run dotnet-ef database update --project src/WEB_Demo.Api/WEB_Demo.Api.csproj --startup-project src/WEB_Demo.Api/WEB_Demo.Api.csproj
 ```
+
+- 建立第一位 Admin（互動式隱藏輸入密碼）：
+
+```powershell
+cd src/WEB_Demo.Api
+dotnet run -- bootstrap-admin --email admin@example.com
+```
+
+- 自動部署可用一次性環境變數，但不得寫入 tracked settings 或 logs：
+
+```powershell
+$env:ADMIN_BOOTSTRAP_PASSWORD="<one-time-secret>"
+dotnet run -- bootstrap-admin --email admin@example.com --password-env ADMIN_BOOTSTRAP_PASSWORD
+Remove-Item Env:ADMIN_BOOTSTRAP_PASSWORD
+```
+
+- 提升系統中既有帳號為第一位 Admin 必須明確加上 `--confirm-existing`。若已有其他 Admin，command 會拒絕變更，日常角色調整一律使用 authenticated Admin API。
+- Security stamp validation 目前會讓每個 authenticated request 多一次 indexed Identity user lookup；流量成長後再評估短效 access token、refresh token 或 token-version cache。
 
 - 中文文件使用 UTF-8；PowerShell 驗證時可使用 `Get-Content -Encoding UTF8`。
 - OpenSpec spec/tasks 應包含合理的單元測試規劃；若延後測試，需在 proposal、design 或 tasks 中清楚記錄。

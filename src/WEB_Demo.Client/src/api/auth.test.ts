@@ -23,7 +23,7 @@ describe('auth API', () => {
         data: {
           accessToken: 'login-token',
           expiresAt: '2026-07-06T00:00:00Z',
-          user: { id: 'user-1', email: 'user@example.com' }
+          user: { id: 'user-1', email: 'user@example.com', roles: ['User'] }
         },
         errorCode: null
       })
@@ -43,7 +43,7 @@ describe('auth API', () => {
         data: {
           accessToken: 'register-token',
           expiresAt: '2026-07-06T00:00:00Z',
-          user: { id: 'user-2', email: 'new@example.com' }
+          user: { id: 'user-2', email: 'new@example.com', roles: ['User'] }
         },
         errorCode: null
       })

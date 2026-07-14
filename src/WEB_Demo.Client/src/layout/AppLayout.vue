@@ -1,26 +1,31 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import type { AuthUser } from '../api/types';
 import AppSidebar from './AppSidebar.vue';
 import AppTopbar from './AppTopbar.vue';
 import type { MenuItem } from './types';
 
-defineProps<{
+const props = defineProps<{
   user: AuthUser;
+  activeView: MenuItem['id'];
 }>();
 
 const emit = defineEmits<{
   logout: [];
   refresh: [];
+  navigate: [id: MenuItem['id']];
 }>();
 
 const isSidebarOpen = ref(false);
-const menuItems: MenuItem[] = [
-  { label: 'Dashboard', icon: 'pi pi-home', active: true },
-  { label: 'Todos', icon: 'pi pi-check-square', active: true },
-  { label: 'API Health', icon: 'pi pi-heart', active: false },
-  { label: 'Settings', icon: 'pi pi-cog', active: false }
-];
+const menuItems = computed<MenuItem[]>(() => {
+  const items: MenuItem[] = [
+    { id: 'dashboard', label: 'Dashboard', icon: 'pi pi-home', active: props.activeView === 'dashboard' }
+  ];
+  if (props.user.roles.includes('Admin')) {
+    items.push({ id: 'users', label: 'User Management', icon: 'pi pi-users', active: props.activeView === 'users' });
+  }
+  return items;
+});
 
 function toggleSidebar() {
   isSidebarOpen.value = !isSidebarOpen.value;
@@ -32,7 +37,13 @@ function closeSidebar() {
 </script>
 
 <template>
-  <div class="layout-wrapper" :class="{ 'layout-mobile-active': isSidebarOpen }">
+  <div
+    class="layout-wrapper"
+    :class="{
+      'layout-sidebar-collapsed': isSidebarOpen,
+      'layout-mobile-active': isSidebarOpen
+    }"
+  >
     <AppTopbar
       :user="user"
       @toggle-sidebar="toggleSidebar"
@@ -40,7 +51,7 @@ function closeSidebar() {
       @logout="emit('logout')"
     />
 
-    <AppSidebar :items="menuItems" @close="closeSidebar" />
+    <AppSidebar :items="menuItems" @close="closeSidebar" @navigate="emit('navigate', $event)" />
 
     <button
       v-if="isSidebarOpen"

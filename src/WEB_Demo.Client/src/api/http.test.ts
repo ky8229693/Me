@@ -168,7 +168,7 @@ describe('requestApi', () => {
         body: {
           success: true,
           message: null,
-          data: { id: 'user-1', email: 'user@example.com' },
+          data: { id: 'user-1', email: 'user@example.com', roles: ['User'] },
           errorCode: null
         }
       })

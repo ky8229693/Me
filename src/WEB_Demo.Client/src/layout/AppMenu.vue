@@ -6,7 +6,7 @@ defineProps<{
 }>();
 
 const emit = defineEmits<{
-  select: [];
+  select: [id: MenuItem['id']];
 }>();
 </script>
 
@@ -19,7 +19,7 @@ const emit = defineEmits<{
       type="button"
       class="menu-item"
       :class="{ active: item.active }"
-      @click="emit('select')"
+      @click="emit('select', item.id)"
     >
       <i :class="item.icon" aria-hidden="true"></i>
       <span>{{ item.label }}</span>
