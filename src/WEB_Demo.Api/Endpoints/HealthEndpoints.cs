@@ -23,7 +23,7 @@ public static class HealthEndpoints
                 : Results.Json(
                     ApiResponse<object>.Fail("Service is unhealthy.", ApiErrorCodes.InternalServerError),
                     statusCode: StatusCodes.Status503ServiceUnavailable);
-        });
+        }).WithTags("System");
 
         return endpoints;
     }

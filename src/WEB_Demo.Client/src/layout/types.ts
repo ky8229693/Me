@@ -1,5 +1,5 @@
 export type MenuItem = {
-  id: 'dashboard' | 'users';
+  id: 'dashboard' | 'users' | 'roles';
   label: string;
   icon: string;
   active: boolean;

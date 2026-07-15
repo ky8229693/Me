@@ -12,9 +12,11 @@ public static class AdminEndpoints
     {
         endpoints.MapGet("/api/admin/status", () =>
             Results.Ok(ApiResponse<object>.Ok(new { Status = "Available" }, "Admin access granted.")))
+            .WithTags("Administration")
             .RequireAuthorization(AppPolicies.AdminOnly);
 
         var users = endpoints.MapGroup("/api/admin/users")
+            .WithTags("Administration - Users")
             .RequireAuthorization(AppPolicies.AdminOnly);
 
         users.MapGet("/", async (
@@ -52,10 +54,34 @@ public static class AdminEndpoints
                 userId,
                 request.Roles)));
 
+        var roles = endpoints.MapGroup("/api/admin/roles")
+            .WithTags("Administration - Roles")
+            .RequireAuthorization(AppPolicies.AdminOnly);
+
+        roles.MapGet("/", async (RoleAdministrationService service) =>
+            ToResult(await service.GetRolesAsync()));
+
+        roles.MapPost("/", async (CreateRoleRequest request, RoleAdministrationService service) =>
+        {
+            var result = await service.CreateAsync(request.Name);
+            return result.Status == AdministrationResultStatus.Success
+                ? Results.Created($"/api/admin/roles/{result.Data!.Id}", ApiResponse<AdminRole>.Ok(result.Data, result.Message))
+                : ToResult(result);
+        });
+
+        roles.MapPut("/{roleId}", async (
+            string roleId,
+            UpdateRoleRequest request,
+            RoleAdministrationService service) =>
+            ToResult(await service.RenameAsync(roleId, request.Name)));
+
+        roles.MapDelete("/{roleId}", async (string roleId, RoleAdministrationService service) =>
+            ToResult(await service.DeleteAsync(roleId)));
+
         return endpoints;
     }
 
-    private static IResult ToResult<T>(AdministrationResult<T> result) => result.Status switch
+    internal static IResult ToResult<T>(AdministrationResult<T> result) => result.Status switch
     {
         AdministrationResultStatus.Success =>
             Results.Ok(ApiResponse<T>.Ok(result.Data, result.Message)),

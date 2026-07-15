@@ -55,6 +55,13 @@ export type AdminUser = {
   roles: string[];
 };
 
+export type AdminRole = {
+  id: string;
+  name: string;
+  isSystem: boolean;
+  userCount: number;
+};
+
 export type PagedResult<T> = {
   items: T[];
   page: number;

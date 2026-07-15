@@ -10,6 +10,7 @@ namespace WEB_Demo.Api.Services;
 
 public sealed class AccountAdministrationService(
     UserManager<IdentityUser> userManager,
+    RoleManager<IdentityRole> roleManager,
     AppDbContext dbContext)
 {
     public const int DefaultPageSize = 10;
@@ -119,17 +120,25 @@ public sealed class AccountAdministrationService(
             return AdministrationResult<AdminUser>.Validation("Roles are required.");
         }
 
-        var desiredRoles = requestedRoles.ToHashSet(StringComparer.Ordinal);
-        var allowedRoles = new HashSet<string>([AppRoles.Admin, AppRoles.User], StringComparer.Ordinal);
+        var desiredRoles = requestedRoles
+            .Where(role => !string.IsNullOrWhiteSpace(role))
+            .Select(role => role.Trim())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
         if (!desiredRoles.Contains(AppRoles.User))
         {
             return AdministrationResult<AdminUser>.Validation("Every account must retain the User role.");
         }
 
-        if (!desiredRoles.IsSubsetOf(allowedRoles))
+        var availableRoles = await roleManager.Roles.AsNoTracking()
+            .Where(role => role.Name != null)
+            .Select(role => role.Name!)
+            .ToListAsync();
+        var canonicalRoles = availableRoles.ToDictionary(role => role, StringComparer.OrdinalIgnoreCase);
+        if (desiredRoles.Any(role => !canonicalRoles.ContainsKey(role)))
         {
-            return AdministrationResult<AdminUser>.Validation("One or more roles are not supported.");
+            return AdministrationResult<AdminUser>.Validation("One or more roles do not exist.");
         }
+        desiredRoles = desiredRoles.Select(role => canonicalRoles[role]).ToHashSet(StringComparer.Ordinal);
 
         var user = await userManager.FindByIdAsync(targetUserId);
         if (user is null)

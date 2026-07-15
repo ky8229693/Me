@@ -35,6 +35,13 @@
 - 每個資料畫面應處理 loading、empty、error 與 disabled states。
 - Mutation 成功後優先使用後端回傳的最新資料更新畫面，避免前端自行推測 server state。
 
+### Role Management
+
+- Role Management 延續 Sakai Vue 的管理清單組合：Admin-only navigation、DataTable、Tag、InputText 與 row actions，再依本專案需求簡化。
+- System roles 的 rename/delete 必須 disabled；使用中的 custom role 必須 disabled delete，並提示先到 User Management 移除指派。
+- User Management 的 role options 必須由 Role API 載入；載入失敗時顯示錯誤並禁止儲存，不使用寫死清單 fallback。
+- UI 應明示 custom role 本身不會自動授予 Permission；真正安全界線仍由後端 policy 決定。
+
 ## Visual Style
 
 - 使用 PrimeVue styled mode、Aura theme 與現有 CSS variables。

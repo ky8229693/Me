@@ -7,7 +7,8 @@ public static class TodoEndpoints
 {
     public static IEndpointRouteBuilder MapTodoEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        var group = endpoints.MapGroup("/api/todos");
+        var group = endpoints.MapGroup("/api/todos")
+            .WithTags("Todos");
 
         group.MapGet("/", (ITodoService todoService) =>
             Results.Ok(ApiResponse<IReadOnlyList<TodoItem>>.Ok(todoService.GetAll())));

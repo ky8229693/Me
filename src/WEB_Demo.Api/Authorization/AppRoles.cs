@@ -6,4 +6,7 @@ public static class AppRoles
     public const string User = "User";
 
     public static readonly string[] All = [Admin, User];
+
+    public static bool IsSystemRole(string? roleName) =>
+        All.Contains(roleName?.Trim(), StringComparer.OrdinalIgnoreCase);
 }

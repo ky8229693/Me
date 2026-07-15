@@ -10,6 +10,7 @@ import Paginator, { type PageState } from 'primevue/paginator';
 import Tag from 'primevue/tag';
 import { useToast } from 'primevue/usetoast';
 import { getAdminUsers, setAdminUserEnabled, setAdminUserRoles } from '../api/adminUsers';
+import { getAdminRoles } from '../api/adminRoles';
 import type { AdminUser } from '../api/types';
 
 const props = defineProps<{ currentUserId: string }>();
@@ -21,7 +22,9 @@ const pageSize = ref(10);
 const search = ref('');
 const loading = ref(false);
 const errorMessage = ref('');
-const roleOptions = ['User', 'Admin'];
+const roleOptions = ref<string[]>([]);
+const rolesLoading = ref(false);
+const rolesError = ref('');
 const roleDrafts = ref<Record<string, string[]>>({});
 
 async function loadUsers() {
@@ -36,6 +39,19 @@ async function loadUsers() {
     errorMessage.value = error instanceof Error ? error.message : 'Unable to load users.';
   } finally {
     loading.value = false;
+  }
+}
+
+async function loadRoles() {
+  rolesLoading.value = true;
+  rolesError.value = '';
+  try {
+    roleOptions.value = (await getAdminRoles())?.map(role => role.name) ?? [];
+  } catch (error) {
+    roleOptions.value = [];
+    rolesError.value = error instanceof Error ? error.message : 'Unable to load roles.';
+  } finally {
+    rolesLoading.value = false;
   }
 }
 
@@ -68,6 +84,7 @@ async function toggleEnabled(user: AdminUser) {
 }
 
 async function saveRoles(user: AdminUser) {
+  if (rolesError.value || rolesLoading.value) return;
   try {
     const updated = await setAdminUserRoles(user.id, roleDrafts.value[user.id] ?? []);
     if (updated) replaceUser(updated);
@@ -78,7 +95,9 @@ async function saveRoles(user: AdminUser) {
   }
 }
 
-onMounted(loadUsers);
+onMounted(() => {
+  void Promise.all([loadUsers(), loadRoles()]);
+});
 </script>
 
 <template>
@@ -95,6 +114,9 @@ onMounted(loadUsers);
     </header>
 
     <Message v-if="errorMessage" severity="error" class="content-alert">{{ errorMessage }}</Message>
+    <Message v-if="rolesError" severity="error" class="content-alert">
+      Role options could not be loaded. Role changes are disabled. {{ rolesError }}
+    </Message>
 
     <DataTable :value="users" :loading="loading" data-key="id" striped-rows>
       <template #empty>No users found.</template>
@@ -112,7 +134,7 @@ onMounted(loadUsers);
             aria-label="Roles"
             display="chip"
             class="role-select"
-            :disabled="data.id === props.currentUserId"
+            :disabled="data.id === props.currentUserId || rolesLoading || !!rolesError"
           />
         </template>
       </Column>
@@ -123,7 +145,7 @@ onMounted(loadUsers);
               label="Save roles"
               size="small"
               severity="secondary"
-              :disabled="data.id === props.currentUserId"
+              :disabled="data.id === props.currentUserId || rolesLoading || !!rolesError"
               @click="saveRoles(data)"
             />
             <Button

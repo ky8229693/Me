@@ -1,6 +1,6 @@
 # Project Memory
 
-最後更新：2026-07-14
+最後更新：2026-07-15
 
 本文件只記錄無法輕易從程式碼看出、跨 OpenSpec changes 仍有價值的專案脈絡。開發規範以 [`AGENTS.md`](../AGENTS.md) 為準；指令與環境設定請見 [`development.md`](development.md)，前端設計原則請見 [`ui-guidelines.md`](ui-guidelines.md)。目前 change 與歷史紀錄應使用 OpenSpec CLI 與 `openspec/changes/archive/` 查詢，不在此手動維護清單。
 
@@ -9,6 +9,8 @@
 - API 暫時維持 Minimal APIs；只有當規模與路由複雜度產生實際需求時才評估 Controllers。
 - API payload 使用共用 `ApiResponse<T>` envelope，同時保留正確 HTTP status code。
 - `Program.cs` 聚焦 service registration、middleware、Swagger、CORS 與 endpoint wiring；feature routes、logic 與 cross-cutting concerns 分開放置。
+- Swagger 端點以功能標籤分類；新增 API 時必須沿用對應 feature tag，管理功能可再細分 Users、Roles 等子領域。
+- 後端功能持續增加時，Endpoints、Contracts/Models 與 Services 應改以 feature 為主要分類（例如 Auth、Administration、Todos），避免不同功能長期集中在共用資料夾；既有程式採漸進式搬移，不為分類而一次大改。
 - PostgreSQL 是預設持久化資料庫；schema 透過 EF Core migrations 管理。
 - 認證使用 ASP.NET Core Identity 與 JWT，不建立自行維護的密碼資料表。
 - Local development 維持 HTTP only，不主動導入 HTTPS。
@@ -22,6 +24,9 @@
 - 人工停用目前沿用 Identity lockout 欄位；若未來加入登入失敗自動鎖定，需評估改用獨立的 active status。
 - 第一位 Admin 只能透過非 HTTP 的 `bootstrap-admin` command 建立或提升；系統不提供預設 Admin credentials 或匿名 bootstrap API。
 - 管理操作禁止 Admin 停用自己、移除自己的 Admin role，並保護最後一位啟用中的 Admin。
+- `Admin`、`User` 是不可改名或刪除的 system roles；Admin 可維護其他自訂 roles。使用中的 role 必須先移除全部帳號指派才能刪除。
+- 自訂 role 只建立 Identity role 名稱與帳號關聯，不會自動授予 Permission、建立 policy 或產生 API 存取權限。
+- Role rename 會更新所有受影響帳號的 security stamp，使其舊 JWT 在下一次受保護 request 失效。
 - 前端依 roles 控制導覽可見性只屬 UX；所有管理 API 仍以 `AdminOnly` policy 作為安全邊界。
 - Security stamp validation 目前讓每個 authenticated request 多一次 indexed user lookup；有實際效能壓力時再評估短效 access token、refresh token 或 token-version cache。
 
@@ -37,7 +42,7 @@
 ## 當前技術限制
 
 - Todo 尚未持久化，也尚未與登入使用者建立 ownership。
-- 授權只有固定 roles，尚無自訂 role CRUD、Permission model、user-specific permissions 或 resource-based authorization。
+- 授權已有自訂 role CRUD，但尚無 Permission model、role-permission mapping、user-specific permissions 或 resource-based authorization。
 - JWT 尚無 refresh token 與集中式 token-version cache。
 - 人工停用與未來可能加入的登入失敗 lockout 尚未拆成不同狀態。
 - E2E 使用現有 PostgreSQL server，但每個完整 Playwright run 建立唯一的 `web_demo_e2e_*` database；測試服務使用獨立 ports，結束後刪除整個 database。
@@ -46,7 +51,6 @@
 ## 後續方向
 
 - Todo PostgreSQL persistence、migration 與 ownership。
-- E2E 每次 run 建立及清除獨立 PostgreSQL database。
 - 正式 structured logging。
 - Permission model 與 resource-based authorization。
 - 登入失敗 lockout 與人工停用狀態分離。

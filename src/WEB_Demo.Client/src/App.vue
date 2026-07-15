@@ -7,6 +7,7 @@ import type { AuthUser } from './api/types';
 import AppLayout from './layout/AppLayout.vue';
 import DashboardView from './views/DashboardView.vue';
 import AdminUsersView from './views/AdminUsersView.vue';
+import AdminRolesView from './views/AdminRolesView.vue';
 import LoginView from './views/LoginView.vue';
 import type { MenuItem } from './layout/types';
 
@@ -58,6 +59,7 @@ onMounted(loadCurrentUser);
     @logout="signOut"
   >
     <AdminUsersView v-if="activeView === 'users' && authUser.roles.includes('Admin')" :current-user-id="authUser.id" />
+    <AdminRolesView v-else-if="activeView === 'roles' && authUser.roles.includes('Admin')" />
     <DashboardView v-else :refresh-key="dashboardRefreshKey" />
   </AppLayout>
 </template>

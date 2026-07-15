@@ -101,6 +101,8 @@ builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<AppRoleInitializer>();
 builder.Services.AddScoped<AdminBootstrapService>();
 builder.Services.AddScoped<AccountAdministrationService>();
+builder.Services.AddScoped<RoleNameValidator>();
+builder.Services.AddScoped<RoleAdministrationService>();
 builder.Services.AddScoped<E2EDatabaseLifecycleService>();
 builder.Services.AddHealthChecks();
 
@@ -190,7 +192,8 @@ app.UseCors("ClientApp");
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapGet("/", () => Results.Redirect("/swagger"));
+app.MapGet("/", () => Results.Redirect("/swagger"))
+    .ExcludeFromDescription();
 app.MapAuthEndpoints();
 app.MapAdminEndpoints();
 app.MapHealthEndpoints();

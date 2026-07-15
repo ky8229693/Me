@@ -23,6 +23,7 @@ const menuItems = computed<MenuItem[]>(() => {
   ];
   if (props.user.roles.includes('Admin')) {
     items.push({ id: 'users', label: 'User Management', icon: 'pi pi-users', active: props.activeView === 'users' });
+    items.push({ id: 'roles', label: 'Role Management', icon: 'pi pi-shield', active: props.activeView === 'roles' });
   }
   return items;
 });
