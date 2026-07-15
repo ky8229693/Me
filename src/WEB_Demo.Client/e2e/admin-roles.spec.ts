@@ -9,6 +9,7 @@ test('Admin 可以建立、指派、改名並刪除自訂 role', async ({ page }
   const renamedRole = `Operations_${suffix}`;
   await registerThroughUi(page, target);
   await page.getByRole('button', { name: 'Logout' }).click();
+  await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
   await loginThroughUi(page, e2eAdmin.email, e2eAdmin.password);
 
   await page.getByRole('button', { name: 'Role Management' }).click();
@@ -52,9 +53,11 @@ test('Admin 可以建立、指派、改名並刪除自訂 role', async ({ page }
 test('一般 User 看不到 Role Management 且 Role API 回傳 403', async ({ page }) => {
   await registerThroughUi(page, createE2ETestData());
   await expect(page.getByRole('button', { name: 'Role Management' })).toHaveCount(0);
-  const token = await page.evaluate(() => window.localStorage.getItem('web_demo.auth_token'));
-  const apiUrl = process.env.E2E_API_URL ?? 'http://localhost:5196';
-  const response = await page.request.get(`${apiUrl}/api/admin/roles`, {
+  const token = await page.evaluate(async () => {
+    const response = await fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' });
+    return (await response.json()).data.accessToken as string;
+  });
+  const response = await page.request.get('/api/admin/roles', {
     headers: { Authorization: `Bearer ${token}` }
   });
   expect(response.status()).toBe(403);

@@ -10,7 +10,7 @@ import * as todoApi from './api/todos';
 import type { TodoItem } from './api/types';
 
 vi.mock('./api/auth', () => ({
-  getCurrentUser: vi.fn(),
+  refreshSession: vi.fn(),
   login: vi.fn(),
   logout: vi.fn(),
   register: vi.fn()
@@ -29,7 +29,7 @@ vi.mock('./api/adminUsers', () => ({
   setAdminUserRoles: vi.fn()
 }));
 
-const getCurrentUserMock = vi.mocked(authApi.getCurrentUser);
+const refreshSessionMock = vi.mocked(authApi.refreshSession);
 const loginMock = vi.mocked(authApi.login);
 const logoutMock = vi.mocked(authApi.logout);
 const getTodosMock = vi.mocked(todoApi.getTodos);
@@ -48,6 +48,10 @@ function mountApp() {
   });
 }
 
+function restoredSession(user: { id: string; email: string; roles: string[] }) {
+  return { accessToken: 'restored-token', expiresAt: '2026-07-16T00:00:00Z', user };
+}
+
 describe('App', () => {
   beforeEach(() => {
     vi.stubGlobal(
@@ -60,7 +64,7 @@ describe('App', () => {
     );
 
     getTodosMock.mockResolvedValue([]);
-    getCurrentUserMock.mockResolvedValue(null);
+    refreshSessionMock.mockResolvedValue(null);
     loginMock.mockResolvedValue(null);
     logoutMock.mockResolvedValue(undefined);
     createTodoMock.mockResolvedValue(null);
@@ -74,7 +78,7 @@ describe('App', () => {
   });
 
   it('loads todos when the dashboard is mounted', async () => {
-    getCurrentUserMock.mockResolvedValue({ id: '1', email: 'user@example.com', roles: ['User'] });
+    refreshSessionMock.mockResolvedValue(restoredSession({ id: '1', email: 'user@example.com', roles: ['User'] }));
 
     mountApp();
     await flushPromises();
@@ -83,20 +87,20 @@ describe('App', () => {
   });
 
   it('shows user management navigation only for Admin users', async () => {
-    getCurrentUserMock.mockResolvedValue({ id: '1', email: 'admin@example.com', roles: ['User', 'Admin'] });
+    refreshSessionMock.mockResolvedValue(restoredSession({ id: '1', email: 'admin@example.com', roles: ['User', 'Admin'] }));
     const wrapper = mountApp();
     await flushPromises();
 
     expect(wrapper.text()).toContain('User Management');
 
-    getCurrentUserMock.mockResolvedValue({ id: '2', email: 'user@example.com', roles: ['User'] });
+    refreshSessionMock.mockResolvedValue(restoredSession({ id: '2', email: 'user@example.com', roles: ['User'] }));
     const userWrapper = mountApp();
     await flushPromises();
     expect(userWrapper.text()).not.toContain('User Management');
   });
 
   it('toggles the desktop sidebar from the navigation button', async () => {
-    getCurrentUserMock.mockResolvedValue({ id: '1', email: 'user@example.com', roles: ['User'] });
+    refreshSessionMock.mockResolvedValue(restoredSession({ id: '1', email: 'user@example.com', roles: ['User'] }));
     const wrapper = mountApp();
     await flushPromises();
 
@@ -112,7 +116,7 @@ describe('App', () => {
 
   it('creates a todo with the entered title', async () => {
     const createdTodo: TodoItem = { id: 2, title: 'New todo', isDone: false };
-    getCurrentUserMock.mockResolvedValue({ id: '1', email: 'user@example.com', roles: ['User'] });
+    refreshSessionMock.mockResolvedValue(restoredSession({ id: '1', email: 'user@example.com', roles: ['User'] }));
     createTodoMock.mockResolvedValue(createdTodo);
 
     const wrapper = mountApp();
@@ -141,7 +145,7 @@ describe('App', () => {
 
   it('toggles and deletes todos through the Todo API module', async () => {
     const todo: TodoItem = { id: 1, title: 'Existing todo', isDone: false };
-    getCurrentUserMock.mockResolvedValue({ id: '1', email: 'user@example.com', roles: ['User'] });
+    refreshSessionMock.mockResolvedValue(restoredSession({ id: '1', email: 'user@example.com', roles: ['User'] }));
     getTodosMock.mockResolvedValue([todo]);
     toggleTodoMock.mockResolvedValue({ ...todo, isDone: true });
 
@@ -161,7 +165,7 @@ describe('App', () => {
   });
 
   it('waits for backend logout and returns to the login view', async () => {
-    getCurrentUserMock.mockResolvedValue({ id: '1', email: 'user@example.com', roles: ['User'] });
+    refreshSessionMock.mockResolvedValue(restoredSession({ id: '1', email: 'user@example.com', roles: ['User'] }));
     const wrapper = mountApp();
     await flushPromises();
 

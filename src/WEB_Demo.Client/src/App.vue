@@ -2,7 +2,7 @@
 import { onMounted, ref } from 'vue';
 import Toast from 'primevue/toast';
 import { useToast } from 'primevue/usetoast';
-import { getCurrentUser, logout } from './api/auth';
+import { logout, refreshSession } from './api/auth';
 import type { AuthUser } from './api/types';
 import AppLayout from './layout/AppLayout.vue';
 import DashboardView from './views/DashboardView.vue';
@@ -15,13 +15,15 @@ const toast = useToast();
 const authUser = ref<AuthUser | null>(null);
 const dashboardRefreshKey = ref(0);
 const activeView = ref<MenuItem['id']>('dashboard');
+const authLoading = ref(true);
 
 async function loadCurrentUser() {
   try {
-    authUser.value = await getCurrentUser();
+    authUser.value = (await refreshSession())?.user ?? null;
   } catch {
     authUser.value = null;
-    await logout();
+  } finally {
+    authLoading.value = false;
   }
 }
 
@@ -48,7 +50,9 @@ onMounted(loadCurrentUser);
 <template>
   <Toast position="top-center" />
 
-  <LoginView v-if="!authUser" @authenticated="handleAuthenticated" />
+  <div v-if="authLoading" class="auth-loading">Restoring session...</div>
+
+  <LoginView v-else-if="!authUser" @authenticated="handleAuthenticated" />
 
   <AppLayout
     v-else
@@ -63,3 +67,12 @@ onMounted(loadCurrentUser);
     <DashboardView v-else :refresh-key="dashboardRefreshKey" />
   </AppLayout>
 </template>
+
+<style scoped>
+.auth-loading {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  color: var(--p-text-muted-color);
+}
+</style>

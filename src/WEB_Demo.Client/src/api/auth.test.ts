@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { login, logout, register } from './auth';
+import { clearAuthToken, getAuthToken } from './authToken';
 
 function mockApiResponse<T>(body: T) {
   return {
@@ -12,10 +13,11 @@ function mockApiResponse<T>(body: T) {
 describe('auth API', () => {
   afterEach(() => {
     window.localStorage.clear();
+    clearAuthToken();
     vi.unstubAllGlobals();
   });
 
-  it('logs in and stores the access token', async () => {
+  it('logs in and keeps the access token only in memory', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
       mockApiResponse({
         success: true,
@@ -32,10 +34,11 @@ describe('auth API', () => {
     const response = await login({ email: 'user@example.com', password: '123456' });
 
     expect(response?.accessToken).toBe('login-token');
-    expect(window.localStorage.getItem('web_demo.auth_token')).toBe('login-token');
+    expect(getAuthToken()).toBe('login-token');
+    expect(window.localStorage.getItem('web_demo.auth_token')).toBeNull();
   });
 
-  it('registers and stores the access token', async () => {
+  it('registers and keeps the access token only in memory', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
       mockApiResponse({
         success: true,
@@ -51,7 +54,8 @@ describe('auth API', () => {
 
     await register({ email: 'new@example.com', password: '123456' });
 
-    expect(window.localStorage.getItem('web_demo.auth_token')).toBe('register-token');
+    expect(getAuthToken()).toBe('register-token');
+    expect(window.localStorage.getItem('web_demo.auth_token')).toBeNull();
   });
 
   it('revokes the backend session and clears the access token on logout', async () => {

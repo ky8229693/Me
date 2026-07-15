@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { requestApi } from './http';
 import { ApiError } from './types';
+import { clearAuthToken, setAuthToken } from './authToken';
 
 function mockApiResponse<T>(response: {
   ok: boolean;
@@ -23,6 +24,7 @@ function mockApiResponse<T>(response: {
 describe('requestApi', () => {
   afterEach(() => {
     window.localStorage.clear();
+    clearAuthToken();
     vi.unstubAllGlobals();
   });
 
@@ -159,8 +161,8 @@ describe('requestApi', () => {
     expect((init.headers as Headers).get('Content-Type')).toBe('application/json');
   });
 
-  it('adds a bearer token when one is stored', async () => {
-    window.localStorage.setItem('web_demo.auth_token', 'test-token');
+  it('adds a bearer token when one is held in memory', async () => {
+    setAuthToken('test-token');
     const fetchMock = vi.fn().mockResolvedValue(
       mockApiResponse({
         ok: true,
@@ -180,5 +182,103 @@ describe('requestApi', () => {
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(init.headers).toBeInstanceOf(Headers);
     expect((init.headers as Headers).get('Authorization')).toBe('Bearer test-token');
+  });
+
+  it('uses one refresh request for concurrent 401 responses and retries each request once', async () => {
+    setAuthToken('expired-token');
+    const fetchMock = vi.fn().mockImplementation(async (path: string, init: RequestInit) => {
+      if (path === '/api/auth/refresh') {
+        return mockApiResponse({
+          ok: true,
+          status: 200,
+          body: {
+            success: true,
+            message: null,
+            data: {
+              accessToken: 'renewed-token',
+              expiresAt: '2026-07-16T00:00:00Z',
+              user: { id: 'user-1', email: 'user@example.com', roles: ['User'] }
+            },
+            errorCode: null
+          }
+        });
+      }
+
+      const authorization = (init.headers as Headers).get('Authorization');
+      return authorization === 'Bearer renewed-token'
+        ? mockApiResponse({
+            ok: true,
+            status: 200,
+            body: { success: true, message: null, data: [], errorCode: null }
+          })
+        : mockApiResponse({
+            ok: false,
+            status: 401,
+            body: { success: false, message: 'Expired.', data: null, errorCode: 'unauthorized' }
+          });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await Promise.all([
+      requestApi('/api/todos'),
+      requestApi('/api/todos'),
+      requestApi('/api/todos')
+    ]);
+
+    expect(fetchMock.mock.calls.filter(([path]) => path === '/api/auth/refresh')).toHaveLength(1);
+    expect(fetchMock.mock.calls.filter(([path]) => path === '/api/todos')).toHaveLength(6);
+  });
+
+  it('does not recurse when refresh fails', async () => {
+    setAuthToken('expired-token');
+    const fetchMock = vi.fn().mockImplementation(async (path: string) => mockApiResponse({
+      ok: false,
+      status: 401,
+      body: {
+        success: false,
+        message: path === '/api/auth/refresh' ? 'Refresh invalid.' : 'Access expired.',
+        data: null,
+        errorCode: 'unauthorized'
+      }
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(requestApi('/api/todos')).rejects.toMatchObject({ status: 401 });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls.filter(([path]) => path === '/api/auth/refresh')).toHaveLength(1);
+  });
+
+  it('retries only once when the renewed access token is also rejected', async () => {
+    setAuthToken('expired-token');
+    const fetchMock = vi.fn().mockImplementation(async (path: string) => {
+      if (path === '/api/auth/refresh') {
+        return mockApiResponse({
+          ok: true,
+          status: 200,
+          body: {
+            success: true,
+            message: null,
+            data: {
+              accessToken: 'renewed-token',
+              expiresAt: '2026-07-16T00:00:00Z',
+              user: { id: 'user-1', email: 'user@example.com', roles: ['User'] }
+            },
+            errorCode: null
+          }
+        });
+      }
+      return mockApiResponse({
+        ok: false,
+        status: 401,
+        body: { success: false, message: 'Rejected.', data: null, errorCode: 'unauthorized' }
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(requestApi('/api/todos')).rejects.toMatchObject({ status: 401 });
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls.filter(([path]) => path === '/api/auth/refresh')).toHaveLength(1);
   });
 });

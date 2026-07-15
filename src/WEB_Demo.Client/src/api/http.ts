@@ -3,10 +3,28 @@ import { getAuthToken } from './authToken';
 
 type ApiRequestOptions = Omit<RequestInit, 'body'> & {
   body?: unknown;
+  skipAuthRefresh?: boolean;
 };
 
+let refreshPromise: Promise<boolean> | null = null;
+
+const nonRefreshableAuthPaths = new Set([
+  '/api/auth/login',
+  '/api/auth/register',
+  '/api/auth/refresh',
+  '/api/auth/logout'
+]);
+
 export async function requestApi<T>(path: string, options: ApiRequestOptions = {}): Promise<T | null> {
-  const { body, headers, ...init } = options;
+  return requestApiInternal<T>(path, options, false);
+}
+
+async function requestApiInternal<T>(
+  path: string,
+  options: ApiRequestOptions,
+  retried: boolean
+): Promise<T | null> {
+  const { body, headers, skipAuthRefresh = false, ...init } = options;
   const requestHeaders = new Headers(headers);
   const hasBody = body !== undefined;
 
@@ -24,11 +42,24 @@ export async function requestApi<T>(path: string, options: ApiRequestOptions = {
   try {
     response = await fetch(path, {
       ...init,
+      credentials: init.credentials ?? 'include',
       headers: requestHeaders,
       body: hasBody ? JSON.stringify(body) : undefined
     });
   } catch {
     throw new ApiError('Unable to connect to the API. Please make sure the backend is running.', 0, null);
+  }
+
+  if (
+    response.status === 401 &&
+    !retried &&
+    !skipAuthRefresh &&
+    !nonRefreshableAuthPaths.has(path)
+  ) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed) {
+      return requestApiInternal<T>(path, options, true);
+    }
   }
 
   const responseText = await response.text();
@@ -59,4 +90,18 @@ export async function requestApi<T>(path: string, options: ApiRequestOptions = {
   }
 
   return payload.data;
+}
+
+async function refreshAccessToken(): Promise<boolean> {
+  if (!refreshPromise) {
+    refreshPromise = import('./auth')
+      .then(({ refreshSession }) => refreshSession())
+      .then(response => Boolean(response?.accessToken))
+      .catch(() => false)
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+
+  return refreshPromise;
 }

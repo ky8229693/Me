@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.IdentityModel.Tokens;
@@ -42,6 +43,12 @@ public sealed class AuthEndpointsTests
         token.Claims.Should().Contain(claim =>
             (claim.Type == ClaimTypes.Role || claim.Type == "role") && claim.Value == "User");
         var jwtId = token.Claims.Single(claim => claim.Type == JwtRegisteredClaimNames.Jti).Value;
+        var familyId = token.Claims.Single(claim => claim.Type == "sid").Value;
+        (body.Data.ExpiresAt - DateTimeOffset.UtcNow).Should().BeCloseTo(TimeSpan.FromMinutes(15), TimeSpan.FromMinutes(1));
+        response.Headers.GetValues("Set-Cookie").Single().ToLowerInvariant().Should()
+            .Contain("httponly")
+            .And.Contain("samesite=strict")
+            .And.Contain("path=/api/auth");
 
         await using var scope = factory.Services.CreateAsyncScope();
         var userManager = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>();
@@ -49,7 +56,172 @@ public sealed class AuthEndpointsTests
         user.Should().NotBeNull();
         (await userManager.IsInRoleAsync(user!, "User")).Should().BeTrue();
         var registry = scope.ServiceProvider.GetRequiredService<IJwtSessionRegistry>();
-        registry.IsActive(jwtId, user!.Id).Should().BeTrue();
+        registry.IsActive(jwtId, user!.Id, familyId).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Refresh_RotatesCookieAndAccessGeneration()
+    {
+        await using var factory = CreateFactory();
+        var client = factory.CreateClient();
+        var register = await client.PostAsJsonAsync(
+            "/api/auth/register",
+            new RegisterRequest($"rotate-{Guid.NewGuid():N}@example.com", "123456"));
+        var firstAuth = await register.Content.ReadFromJsonAsync<ApiResponse<AuthResponse>>();
+        var firstCookie = GetRefreshCookie(register);
+
+        using var refreshRequest = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh");
+        refreshRequest.Headers.Add("Cookie", firstCookie);
+        var refresh = await client.SendAsync(refreshRequest);
+        var secondAuth = await refresh.Content.ReadFromJsonAsync<ApiResponse<AuthResponse>>();
+        var secondCookie = GetRefreshCookie(refresh);
+
+        refresh.StatusCode.Should().Be(HttpStatusCode.OK);
+        secondAuth!.Data!.AccessToken.Should().NotBe(firstAuth!.Data!.AccessToken);
+        secondCookie.Should().NotBe(firstCookie);
+
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", firstAuth.Data.AccessToken);
+        (await client.GetAsync("/api/auth/me")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", secondAuth.Data.AccessToken);
+        (await client.GetAsync("/api/auth/me")).StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task Refresh_WhenConsumedTokenIsReused_RevokesWholeFamily()
+    {
+        await using var factory = CreateFactory();
+        var client = factory.CreateClient();
+        var register = await client.PostAsJsonAsync(
+            "/api/auth/register",
+            new RegisterRequest($"reuse-{Guid.NewGuid():N}@example.com", "123456"));
+        var oldCookie = GetRefreshCookie(register);
+
+        using var firstRefreshRequest = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh");
+        firstRefreshRequest.Headers.Add("Cookie", oldCookie);
+        var firstRefresh = await client.SendAsync(firstRefreshRequest);
+        var auth = await firstRefresh.Content.ReadFromJsonAsync<ApiResponse<AuthResponse>>();
+
+        using var replayRequest = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh");
+        replayRequest.Headers.Add("Cookie", oldCookie);
+        (await factory.CreateClient().SendAsync(replayRequest)).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", auth!.Data!.AccessToken);
+        (await client.GetAsync("/api/auth/me")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task Refresh_WhenRequestsRace_AllowsOnlyOneRotation()
+    {
+        await using var factory = CreateFactory();
+        var register = await factory.CreateClient().PostAsJsonAsync(
+            "/api/auth/register",
+            new RegisterRequest($"race-{Guid.NewGuid():N}@example.com", "123456"));
+        var cookie = GetRefreshCookie(register);
+
+        static HttpRequestMessage RefreshRequest(string cookieHeader)
+        {
+            var request = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh");
+            request.Headers.Add("Cookie", cookieHeader);
+            return request;
+        }
+
+        using var firstRequest = RefreshRequest(cookie);
+        using var secondRequest = RefreshRequest(cookie);
+        var responses = await Task.WhenAll(
+            factory.CreateClient().SendAsync(firstRequest),
+            factory.CreateClient().SendAsync(secondRequest));
+
+        responses.Select(response => response.StatusCode).Should()
+            .BeEquivalentTo([HttpStatusCode.OK, HttpStatusCode.Unauthorized]);
+    }
+
+    [Fact]
+    public async Task Register_InProduction_SetsSecureRefreshCookie()
+    {
+        await using var factory = CreateFactory(environment: "Production");
+        var response = await factory.CreateClient().PostAsJsonAsync(
+            "/api/auth/register",
+            new RegisterRequest($"secure-{Guid.NewGuid():N}@example.com", "123456"));
+
+        response.Headers.GetValues("Set-Cookie").Single().ToLowerInvariant().Should().Contain("secure");
+    }
+
+    [Fact]
+    public async Task Register_PersistsOnlyRefreshTokenHash()
+    {
+        await using var factory = CreateFactory();
+        var response = await factory.CreateClient().PostAsJsonAsync(
+            "/api/auth/register",
+            new RegisterRequest($"hash-{Guid.NewGuid():N}@example.com", "123456"));
+        var rawToken = GetRefreshCookie(response).Split('=', 2)[1];
+
+        await using var scope = factory.Services.CreateAsyncScope();
+        var records = await scope.ServiceProvider.GetRequiredService<AppDbContext>()
+            .RefreshTokens.AsNoTracking().ToListAsync();
+        records.Should().ContainSingle();
+        records[0].TokenHash.Should().Be(RefreshTokenCrypto.Hash(rawToken));
+        records[0].TokenHash.Should().NotBe(rawToken);
+    }
+
+    [Fact]
+    public async Task Cleanup_RemovesOnlyRecordsBeyondRetention()
+    {
+        await using var factory = CreateFactory();
+        await factory.CreateClient().PostAsJsonAsync(
+            "/api/auth/register",
+            new RegisterRequest($"cleanup-{Guid.NewGuid():N}@example.com", "123456"));
+
+        await using var scope = factory.Services.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var record = await dbContext.RefreshTokens.SingleAsync();
+        record.ExpiresAt = DateTimeOffset.UtcNow.AddDays(-31);
+        await dbContext.SaveChangesAsync();
+
+        (await scope.ServiceProvider.GetRequiredService<IRefreshTokenService>().CleanupAsync()).Should().Be(1);
+        (await dbContext.RefreshTokens.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Refresh_AfterApiRestart_RecoversMemorySession()
+    {
+        var root = new InMemoryDatabaseRoot();
+        var databaseName = $"restart-refresh-{Guid.NewGuid():N}";
+        await using var originalFactory = CreateFactory(databaseName, root);
+        var register = await originalFactory.CreateClient().PostAsJsonAsync(
+            "/api/auth/register",
+            new RegisterRequest($"restart-refresh-{Guid.NewGuid():N}@example.com", "123456"));
+        var oldAuth = await register.Content.ReadFromJsonAsync<ApiResponse<AuthResponse>>();
+        var refreshCookie = GetRefreshCookie(register);
+
+        await using var restartedFactory = CreateFactory(databaseName, root);
+        var client = restartedFactory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", oldAuth!.Data!.AccessToken);
+        (await client.GetAsync("/api/auth/me")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+
+        client.DefaultRequestHeaders.Authorization = null;
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh");
+        request.Headers.Add("Cookie", refreshCookie);
+        var refresh = await client.SendAsync(request);
+        var recovered = await refresh.Content.ReadFromJsonAsync<ApiResponse<AuthResponse>>();
+        refresh.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", recovered!.Data!.AccessToken);
+        (await client.GetAsync("/api/auth/me")).StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task Refresh_WithUnconfiguredOrigin_ReturnsForbidden()
+    {
+        await using var factory = CreateFactory();
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh");
+        request.Headers.Add("Origin", "http://untrusted.example");
+
+        (await factory.CreateClient().SendAsync(request)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
     [Fact]
@@ -189,27 +361,38 @@ public sealed class AuthEndpointsTests
     }
 
     [Fact]
-    public async Task Logout_WithoutBearerToken_ReturnsUnauthorized()
+    public async Task Logout_WithoutBearerToken_IsIdempotent()
     {
         await using var factory = CreateFactory();
         var client = factory.CreateClient();
 
-        (await client.PostAsync("/api/auth/logout", null)).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        (await client.PostAsync("/api/auth/logout", null)).StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
-    private static WebApplicationFactory<Program> CreateFactory()
+    private static string GetRefreshCookie(HttpResponseMessage response) =>
+        response.Headers.GetValues("Set-Cookie")
+            .Single(value => value.StartsWith("web_demo.refresh_token=", StringComparison.Ordinal))
+            .Split(';', 2)[0];
+
+    private static WebApplicationFactory<Program> CreateFactory(
+        string? sharedDatabaseName = null,
+        InMemoryDatabaseRoot? root = null,
+        string environment = "Development")
     {
-        var databaseName = $"auth-tests-{Guid.NewGuid():N}";
+        var databaseName = sharedDatabaseName ?? $"auth-tests-{Guid.NewGuid():N}";
 
         return new WebApplicationFactory<Program>()
             .WithWebHostBuilder(builder =>
             {
-                builder.UseEnvironment("Development");
+                builder.UseEnvironment(environment);
                 builder.ConfigureServices(services =>
                 {
                     services.RemoveAll<DbContextOptions<AppDbContext>>();
                     services.AddDbContext<AppDbContext>(options =>
-                        options.UseInMemoryDatabase(databaseName));
+                    {
+                        if (root is null) options.UseInMemoryDatabase(databaseName);
+                        else options.UseInMemoryDatabase(databaseName, root);
+                    });
                 });
             });
     }

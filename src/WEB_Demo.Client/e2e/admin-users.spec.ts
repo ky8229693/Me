@@ -6,6 +6,7 @@ test('Admin 可以搜尋、停用、啟用並提升測試帳號', async ({ page 
   const target = createE2ETestData();
   await registerThroughUi(page, target);
   await page.getByRole('button', { name: 'Logout' }).click();
+  await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
   await loginThroughUi(page, e2eAdmin.email, e2eAdmin.password);
 
   await page.getByRole('button', { name: 'User Management' }).click();
@@ -36,9 +37,11 @@ test('一般使用者看不到管理入口且管理 API 回傳 403', async ({ pa
   await registerThroughUi(page, data);
 
   await expect(page.getByRole('button', { name: 'User Management' })).toHaveCount(0);
-  const token = await page.evaluate(() => window.localStorage.getItem('web_demo.auth_token'));
-  const apiUrl = process.env.E2E_API_URL ?? 'http://localhost:5196';
-  const response = await page.request.get(`${apiUrl}/api/admin/users`, {
+  const token = await page.evaluate(async () => {
+    const response = await fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' });
+    return (await response.json()).data.accessToken as string;
+  });
+  const response = await page.request.get('/api/admin/users', {
     headers: { Authorization: `Bearer ${token}` }
   });
 

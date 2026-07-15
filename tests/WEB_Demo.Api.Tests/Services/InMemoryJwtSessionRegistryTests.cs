@@ -55,6 +55,23 @@ public sealed class InMemoryJwtSessionRegistryTests
     }
 
     [Fact]
+    public void RevokeFamily_RemovesOnlySessionsInThatFamily()
+    {
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var registry = new InMemoryJwtSessionRegistry(cache);
+        var expiresAt = DateTimeOffset.UtcNow.AddMinutes(5);
+        registry.Register("family-a-1", "user-1", "family-a", expiresAt);
+        registry.Register("family-a-2", "user-1", "family-a", expiresAt);
+        registry.Register("family-b-1", "user-1", "family-b", expiresAt);
+
+        registry.RevokeFamily("family-a");
+
+        registry.IsActive("family-a-1", "user-1", "family-a").Should().BeFalse();
+        registry.IsActive("family-a-2", "user-1", "family-a").Should().BeFalse();
+        registry.IsActive("family-b-1", "user-1", "family-b").Should().BeTrue();
+    }
+
+    [Fact]
     public async Task ExpiredSession_IsInactiveAndCannotBeRevivedByLookup()
     {
         using var cache = new MemoryCache(new MemoryCacheOptions());

@@ -25,8 +25,13 @@ var jwtOptions = builder.Configuration
 
 builder.Services.Configure<ApiCorsOptions>(
     builder.Configuration.GetSection(ApiCorsOptions.SectionName));
-builder.Services.Configure<JwtOptions>(
-    builder.Configuration.GetSection(JwtOptions.SectionName));
+builder.Services.AddOptions<JwtOptions>()
+    .Bind(builder.Configuration.GetSection(JwtOptions.SectionName))
+    .Validate(options => options.AccessTokenMinutes > 0, "AccessTokenMinutes must be positive.")
+    .Validate(options => options.RefreshTokenDays > 0, "RefreshTokenDays must be positive.")
+    .Validate(options => options.RefreshTokenRetentionDays >= 0, "RefreshTokenRetentionDays cannot be negative.")
+    .Validate(options => !string.IsNullOrWhiteSpace(options.RefreshCookieName), "RefreshCookieName is required.")
+    .ValidateOnStart();
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<IJwtSessionRegistry, InMemoryJwtSessionRegistry>();
 
@@ -69,10 +74,12 @@ builder.Services
                     .GetRequiredService<IJwtSessionRegistry>();
                 var userId = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
                 var jwtId = context.Principal?.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Jti);
+                var familyId = context.Principal?.FindFirstValue("sid");
 
                 if (string.IsNullOrWhiteSpace(userId) ||
                     string.IsNullOrWhiteSpace(jwtId) ||
-                    !sessionRegistry.IsActive(jwtId, userId))
+                    string.IsNullOrWhiteSpace(familyId) ||
+                    !sessionRegistry.IsActive(jwtId, userId, familyId))
                 {
                     context.Fail("The token is no longer valid.");
                 }
@@ -101,6 +108,9 @@ builder.Services.AddAuthorization(options =>
 });
 builder.Services.AddSingleton<ITodoService, InMemoryTodoService>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
+builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
+builder.Services.AddScoped<IRefreshCookieService, RefreshCookieService>();
+builder.Services.AddScoped<IUserSessionRevocationService, UserSessionRevocationService>();
 builder.Services.AddScoped<AppRoleInitializer>();
 builder.Services.AddScoped<AdminBootstrapService>();
 builder.Services.AddScoped<AccountAdministrationService>();
@@ -116,7 +126,8 @@ builder.Services.AddCors(options =>
         policy
             .WithOrigins(corsOptions.AllowedOrigins)
             .AllowAnyHeader()
-            .AllowAnyMethod();
+            .AllowAnyMethod()
+            .AllowCredentials();
     });
 });
 

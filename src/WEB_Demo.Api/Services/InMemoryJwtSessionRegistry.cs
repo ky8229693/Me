@@ -8,22 +8,23 @@ public sealed class InMemoryJwtSessionRegistry(IMemoryCache cache) : IJwtSession
     private readonly object _indexLock = new();
     private readonly Dictionary<string, HashSet<string>> _sessionsByUser =
         new(StringComparer.Ordinal);
+    private readonly Dictionary<string, HashSet<string>> _sessionsByFamily =
+        new(StringComparer.Ordinal);
 
-    public void Register(string jwtId, string userId, DateTimeOffset expiresAt)
+    public void Register(string jwtId, string userId, DateTimeOffset expiresAt) =>
+        Register(jwtId, userId, jwtId, expiresAt);
+
+    public void Register(string jwtId, string userId, string familyId, DateTimeOffset expiresAt)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(jwtId);
         ArgumentException.ThrowIfNullOrWhiteSpace(userId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(familyId);
 
-        var entry = new JwtSessionEntry(jwtId, userId, expiresAt);
+        var entry = new JwtSessionEntry(jwtId, userId, familyId, expiresAt);
         lock (_indexLock)
         {
-            if (!_sessionsByUser.TryGetValue(userId, out var sessions))
-            {
-                sessions = new HashSet<string>(StringComparer.Ordinal);
-                _sessionsByUser[userId] = sessions;
-            }
-
-            sessions.Add(jwtId);
+            AddToIndex(_sessionsByUser, userId, jwtId);
+            AddToIndex(_sessionsByFamily, familyId, jwtId);
         }
 
         cache.Set(
@@ -50,6 +51,14 @@ public sealed class InMemoryJwtSessionRegistry(IMemoryCache cache) : IJwtSession
         entry is not null &&
         entry.ExpiresAt > DateTimeOffset.UtcNow &&
         string.Equals(entry.UserId, userId, StringComparison.Ordinal);
+
+    public bool IsActive(string jwtId, string userId, string familyId) =>
+        !string.IsNullOrWhiteSpace(familyId) &&
+        cache.TryGetValue<JwtSessionEntry>(GetCacheKey(jwtId), out var entry) &&
+        entry is not null &&
+        entry.ExpiresAt > DateTimeOffset.UtcNow &&
+        string.Equals(entry.UserId, userId, StringComparison.Ordinal) &&
+        string.Equals(entry.FamilyId, familyId, StringComparison.Ordinal);
 
     public void Revoke(string jwtId)
     {
@@ -90,24 +99,55 @@ public sealed class InMemoryJwtSessionRegistry(IMemoryCache cache) : IJwtSession
         }
     }
 
+    public void RevokeFamily(string familyId)
+    {
+        if (string.IsNullOrWhiteSpace(familyId)) return;
+
+        string[] jwtIds;
+        lock (_indexLock)
+        {
+            if (!_sessionsByFamily.Remove(familyId, out var sessions)) return;
+            jwtIds = sessions.ToArray();
+        }
+
+        foreach (var jwtId in jwtIds) cache.Remove(GetCacheKey(jwtId));
+    }
+
     private void RemoveFromIndex(JwtSessionEntry entry)
     {
         lock (_indexLock)
         {
-            if (!_sessionsByUser.TryGetValue(entry.UserId, out var sessions))
+            if (_sessionsByUser.TryGetValue(entry.UserId, out var sessions))
             {
-                return;
+                sessions.Remove(entry.JwtId);
+                if (sessions.Count == 0)
+                {
+                    _sessionsByUser.Remove(entry.UserId);
+                }
             }
 
-            sessions.Remove(entry.JwtId);
-            if (sessions.Count == 0)
+            if (_sessionsByFamily.TryGetValue(entry.FamilyId, out var familySessions))
             {
-                _sessionsByUser.Remove(entry.UserId);
+                familySessions.Remove(entry.JwtId);
+                if (familySessions.Count == 0) _sessionsByFamily.Remove(entry.FamilyId);
             }
         }
     }
 
+    private static void AddToIndex(
+        Dictionary<string, HashSet<string>> index,
+        string key,
+        string jwtId)
+    {
+        if (!index.TryGetValue(key, out var sessions))
+        {
+            sessions = new HashSet<string>(StringComparer.Ordinal);
+            index[key] = sessions;
+        }
+        sessions.Add(jwtId);
+    }
+
     private static string GetCacheKey(string jwtId) => $"{CacheKeyPrefix}{jwtId}";
 
-    private sealed record JwtSessionEntry(string JwtId, string UserId, DateTimeOffset ExpiresAt);
+    private sealed record JwtSessionEntry(string JwtId, string UserId, string FamilyId, DateTimeOffset ExpiresAt);
 }

@@ -12,7 +12,7 @@ public sealed class AccountAdministrationService(
     UserManager<IdentityUser> userManager,
     RoleManager<IdentityRole> roleManager,
     AppDbContext dbContext,
-    IJwtSessionRegistry sessionRegistry)
+    IUserSessionRevocationService sessionRevocation)
 {
     public const int DefaultPageSize = 10;
     public const int MaximumPageSize = 100;
@@ -106,7 +106,7 @@ public sealed class AccountAdministrationService(
         }
 
         await CommitAsync(transaction);
-        sessionRegistry.RevokeAll(user.Id);
+        await sessionRevocation.RevokeUserAsync(user.Id, isEnabled ? "account-enabled" : "account-disabled");
         return AdministrationResult<AdminUser>.Success(
             await ToAdminUserAsync(user),
             isEnabled ? "Account enabled." : "Account disabled.");
@@ -196,7 +196,7 @@ public sealed class AccountAdministrationService(
         }
 
         await CommitAsync(transaction);
-        sessionRegistry.RevokeAll(user.Id);
+        await sessionRevocation.RevokeUserAsync(user.Id, "roles-updated");
         return AdministrationResult<AdminUser>.Success(await ToAdminUserAsync(user), "Roles updated.");
     }
 

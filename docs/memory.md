@@ -19,7 +19,9 @@
 ## 認證與管理安全決策
 
 - API 啟動時確保固定的 `Admin`、`User` roles 存在；新帳號預設取得 `User`。
-- JWT 包含 Identity roles 與唯一 `jti`；標準 JWT 驗證成功後，authenticated request 只接受存在於單機 Memory session allowlist 的 `jti`，不再於每次 request 查詢 Identity user 或 PostgreSQL security stamp。
+- JWT access token 預設存活 15 分鐘，包含 Identity roles、唯一 `jti` 與 refresh family `sid`；標準 JWT 驗證成功後，authenticated request 只接受存在於單機 Memory session allowlist 且 `jti`、`sid`、user id 全部相符的 session，不再於每次 request 查詢 Identity user 或 PostgreSQL security stamp。
+- Refresh token 使用 7 天固定 absolute lifetime 與每次使用即 rotation；原文只存在 `HttpOnly`、`SameSite=Strict`、`Path=/api/auth` cookie，PostgreSQL 只保存 SHA-256 hash。Production cookie 強制 `Secure`，Development 因 HTTP only 允許非 Secure。
+- Refresh token family 的已消耗 token 若再次出現，視為 reuse，撤銷整個 family 及其 Memory access sessions；refresh 時才重查 Identity user 狀態與目前 roles。
 - 帳號停用、重新啟用、角色指派、Role rename、Admin bootstrap promotion 或其他 security mutation 成功後，必須撤銷受影響 user 的全部 Memory sessions，使舊 token 在下一次受保護 request 立即失效。
 - 人工停用目前沿用 Identity lockout 欄位；若未來加入登入失敗自動鎖定，需評估改用獨立的 active status。
 - 第一位 Admin 只能透過非 HTTP 的 `bootstrap-admin` command 建立或提升；系統不提供預設 Admin credentials 或匿名 bootstrap API。
@@ -29,7 +31,7 @@
 - Role rename 會更新所有受影響帳號的 security stamp，使其舊 JWT 在下一次受保護 request 失效。
 - 前端依 roles 控制導覽可見性只屬 UX；所有管理 API 仍以 `AdminOnly` policy 作為安全邊界。
 - Memory session allowlist 是 authoritative registry，不是可在 miss 時回查資料庫並重新啟用 token 的一般 cache；unknown、expired 或 evicted session 一律 fail-closed。
-- 目前 allowlist 只支援單一 API process；API restart、deployment 或 Memory eviction 會讓尚未到期的 JWT 提早失效並要求重新登入。
+- 目前 allowlist 只支援單一 API process；API restart、deployment 或 Memory eviction 會讓既有 access token fail-closed，但瀏覽器仍可用有效 refresh cookie 建立新的 Memory session。跨 instance 需另行導入 distributed registry。
 
 ## 前端與 UI 原則
 
@@ -44,7 +46,8 @@
 
 - Todo 尚未持久化，也尚未與登入使用者建立 ownership。
 - 授權已有自訂 role CRUD，但尚無 Permission model、role-permission mapping、user-specific permissions 或 resource-based authorization。
-- JWT 尚無 refresh token、自動續期與跨 instance distributed session registry；目前 access token 與 Memory session lifetime 維持 60 分鐘。
+- Access token 只保存在前端 module memory，不寫入 localStorage；啟動時會清除舊 `web_demo.auth_token` key，並以 refresh cookie 恢復登入。
+- Shared HTTP client 對可重試的 401 使用單一 JavaScript runtime 內的 single-flight refresh，成功後原 request 最多重試一次；多分頁／多 tab 協調與跨 instance distributed session registry 尚未實作。
 - 人工停用與未來可能加入的登入失敗 lockout 尚未拆成不同狀態。
 - E2E 使用現有 PostgreSQL server，但每個完整 Playwright run 建立唯一的 `web_demo_e2e_*` database；測試服務使用獨立 ports，結束後刪除整個 database。
 - Frontend 尚未導入 Pinia、request cancellation、retry 或 cache；只有規模產生需求時才評估。

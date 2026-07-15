@@ -16,7 +16,7 @@ public sealed class JwtTokenService(
 {
     private readonly JwtOptions _options = options.Value;
 
-    public async Task<AuthResponse> CreateTokenAsync(IdentityUser user)
+    public async Task<AuthResponse> CreateTokenAsync(IdentityUser user, string familyId)
     {
         var expiresAt = DateTimeOffset.UtcNow.AddMinutes(_options.AccessTokenMinutes);
         var jwtId = Guid.NewGuid().ToString("N");
@@ -27,6 +27,7 @@ public sealed class JwtTokenService(
         {
             new Claim(JwtRegisteredClaimNames.Sub, user.Id),
             new Claim(JwtRegisteredClaimNames.Jti, jwtId),
+            new Claim("sid", familyId),
             new Claim(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty),
             new Claim(ClaimTypes.NameIdentifier, user.Id),
             new Claim(ClaimTypes.Email, user.Email ?? string.Empty)
@@ -43,7 +44,7 @@ public sealed class JwtTokenService(
             signingCredentials: credentials);
 
         var accessToken = new JwtSecurityTokenHandler().WriteToken(token);
-        sessionRegistry.Register(jwtId, user.Id, expiresAt);
+        sessionRegistry.Register(jwtId, user.Id, familyId, expiresAt);
 
         return new AuthResponse(
             accessToken,

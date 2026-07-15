@@ -6,7 +6,7 @@ namespace WEB_Demo.Api.Bootstrap;
 
 public sealed class AdminBootstrapService(
     UserManager<IdentityUser> userManager,
-    IJwtSessionRegistry sessionRegistry)
+    IUserSessionRevocationService sessionRevocation)
 {
     public async Task<AdminBootstrapResult> BootstrapAsync(
         string email,
@@ -88,7 +88,7 @@ public sealed class AdminBootstrapService(
             return AdminBootstrapResult.Failure("Unable to finalize Admin bootstrap.");
         }
 
-        sessionRegistry.RevokeAll(user.Id);
+        await sessionRevocation.RevokeUserAsync(user.Id, "admin-bootstrap");
 
         return AdminBootstrapResult.Success(created
             ? $"Admin account created for {email}."
