@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { flushPromises, mount } from '@vue/test-utils';
+import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import PrimeVue from 'primevue/config';
 import ToastService from 'primevue/toastservice';
 import Aura from '@primeuix/themes/aura';
@@ -8,6 +8,7 @@ import App from './App.vue';
 import * as authApi from './api/auth';
 import * as todoApi from './api/todos';
 import type { TodoItem } from './api/types';
+import { notifySessionExpired } from './api/authSession';
 
 vi.mock('./api/auth', () => ({
   refreshSession: vi.fn(),
@@ -37,8 +38,10 @@ const createTodoMock = vi.mocked(todoApi.createTodo);
 const toggleTodoMock = vi.mocked(todoApi.toggleTodo);
 const deleteTodoMock = vi.mocked(todoApi.deleteTodo);
 
-function mountApp() {
-  return mount(App, {
+const mountedWrappers: VueWrapper[] = [];
+
+function mountApp(): VueWrapper {
+  const wrapper = mount(App, {
     global: {
       plugins: [
         [PrimeVue, { theme: { preset: Aura } }],
@@ -46,6 +49,8 @@ function mountApp() {
       ]
     }
   });
+  mountedWrappers.push(wrapper);
+  return wrapper;
 }
 
 function restoredSession(user: { id: string; email: string; roles: string[] }) {
@@ -73,6 +78,7 @@ describe('App', () => {
   });
 
   afterEach(() => {
+    for (const wrapper of mountedWrappers.splice(0)) wrapper.unmount();
     vi.clearAllMocks();
     vi.unstubAllGlobals();
   });
@@ -176,5 +182,17 @@ describe('App', () => {
 
     expect(logoutMock).toHaveBeenCalledOnce();
     expect(wrapper.find('input[placeholder="name@example.com"]').exists()).toBe(true);
+  });
+
+  it('returns to the login view immediately when automatic refresh fails', async () => {
+    refreshSessionMock.mockResolvedValue(restoredSession({ id: '1', email: 'user@example.com', roles: ['User'] }));
+    const wrapper = mountApp();
+    await flushPromises();
+
+    notifySessionExpired();
+    await flushPromises();
+
+    expect(wrapper.find('input[placeholder="name@example.com"]').exists()).toBe(true);
+    expect(wrapper.text()).not.toContain('Dashboard');
   });
 });

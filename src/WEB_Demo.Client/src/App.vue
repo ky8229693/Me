@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { onMounted, onUnmounted, ref } from 'vue';
 import Toast from 'primevue/toast';
 import { useToast } from 'primevue/usetoast';
 import { logout, refreshSession } from './api/auth';
@@ -10,12 +10,14 @@ import AdminUsersView from './views/AdminUsersView.vue';
 import AdminRolesView from './views/AdminRolesView.vue';
 import LoginView from './views/LoginView.vue';
 import type { MenuItem } from './layout/types';
+import { onSessionExpired } from './api/authSession';
 
 const toast = useToast();
 const authUser = ref<AuthUser | null>(null);
 const dashboardRefreshKey = ref(0);
 const activeView = ref<MenuItem['id']>('dashboard');
 const authLoading = ref(true);
+let stopSessionExpiredListener: (() => void) | null = null;
 
 async function loadCurrentUser() {
   try {
@@ -37,6 +39,12 @@ function refreshDashboard() {
   dashboardRefreshKey.value += 1;
 }
 
+function handleSessionExpired() {
+  authUser.value = null;
+  activeView.value = 'dashboard';
+  toast.add({ severity: 'warn', detail: 'Your session has expired. Please sign in again.', life: 4000 });
+}
+
 async function signOut() {
   await logout();
   authUser.value = null;
@@ -44,7 +52,12 @@ async function signOut() {
   toast.add({ severity: 'success', detail: 'Signed out.', life: 2600 });
 }
 
-onMounted(loadCurrentUser);
+onMounted(() => {
+  stopSessionExpiredListener = onSessionExpired(handleSessionExpired);
+  void loadCurrentUser();
+});
+
+onUnmounted(() => stopSessionExpiredListener?.());
 </script>
 
 <template>

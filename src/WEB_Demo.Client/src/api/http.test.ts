@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { requestApi } from './http';
 import { ApiError } from './types';
 import { clearAuthToken, setAuthToken } from './authToken';
+import { onSessionExpired } from './authSession';
 
 function mockApiResponse<T>(response: {
   ok: boolean;
@@ -231,6 +232,8 @@ describe('requestApi', () => {
 
   it('does not recurse when refresh fails', async () => {
     setAuthToken('expired-token');
+    const expiredListener = vi.fn();
+    const stopListening = onSessionExpired(expiredListener);
     const fetchMock = vi.fn().mockImplementation(async (path: string) => mockApiResponse({
       ok: false,
       status: 401,
@@ -247,6 +250,8 @@ describe('requestApi', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls.filter(([path]) => path === '/api/auth/refresh')).toHaveLength(1);
+    expect(expiredListener).toHaveBeenCalledOnce();
+    stopListening();
   });
 
   it('retries only once when the renewed access token is also rejected', async () => {

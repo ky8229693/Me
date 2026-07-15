@@ -1,5 +1,6 @@
 import { ApiError, type ApiResponse } from './types';
 import { getAuthToken } from './authToken';
+import { notifySessionExpired } from './authSession';
 
 type ApiRequestOptions = Omit<RequestInit, 'body'> & {
   body?: unknown;
@@ -98,6 +99,10 @@ async function refreshAccessToken(): Promise<boolean> {
       .then(({ refreshSession }) => refreshSession())
       .then(response => Boolean(response?.accessToken))
       .catch(() => false)
+      .then(refreshed => {
+        if (!refreshed) notifySessionExpired();
+        return refreshed;
+      })
       .finally(() => {
         refreshPromise = null;
       });
