@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using WEB_Demo.Api.Authorization;
 using WEB_Demo.Api.Bootstrap;
 using WEB_Demo.Api.Data;
+using WEB_Demo.Api.Services;
 
 namespace WEB_Demo.Api.Tests.Services;
 
@@ -66,6 +67,26 @@ public sealed class AdminBootstrapServiceTests
 
         result.Succeeded.Should().BeTrue();
         (await userManager.GetRolesAsync(user)).Should().BeEquivalentTo([AppRoles.Admin, AppRoles.User]);
+    }
+
+    [Fact]
+    public async Task Bootstrap_ExistingConfirmedUser_RevokesExistingSessions()
+    {
+        await using var factory = CreateFactory();
+        _ = factory.CreateClient();
+        await using var scope = factory.Services.CreateAsyncScope();
+        var service = scope.ServiceProvider.GetRequiredService<AdminBootstrapService>();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>();
+        var registry = scope.ServiceProvider.GetRequiredService<IJwtSessionRegistry>();
+        var email = $"session-{Guid.NewGuid():N}@example.com";
+        var user = new IdentityUser { UserName = email, Email = email };
+        (await userManager.CreateAsync(user, "123456")).Succeeded.Should().BeTrue();
+        registry.Register("existing-session", user.Id, DateTimeOffset.UtcNow.AddMinutes(5));
+
+        var result = await service.BootstrapAsync(email, null, true);
+
+        result.Succeeded.Should().BeTrue();
+        registry.IsActive("existing-session", user.Id).Should().BeFalse();
     }
 
     [Fact]

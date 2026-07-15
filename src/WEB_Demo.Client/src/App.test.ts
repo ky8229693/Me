@@ -31,6 +31,7 @@ vi.mock('./api/adminUsers', () => ({
 
 const getCurrentUserMock = vi.mocked(authApi.getCurrentUser);
 const loginMock = vi.mocked(authApi.login);
+const logoutMock = vi.mocked(authApi.logout);
 const getTodosMock = vi.mocked(todoApi.getTodos);
 const createTodoMock = vi.mocked(todoApi.createTodo);
 const toggleTodoMock = vi.mocked(todoApi.toggleTodo);
@@ -61,6 +62,7 @@ describe('App', () => {
     getTodosMock.mockResolvedValue([]);
     getCurrentUserMock.mockResolvedValue(null);
     loginMock.mockResolvedValue(null);
+    logoutMock.mockResolvedValue(undefined);
     createTodoMock.mockResolvedValue(null);
     toggleTodoMock.mockResolvedValue(null);
     deleteTodoMock.mockResolvedValue(undefined);
@@ -156,5 +158,19 @@ describe('App', () => {
 
     expect(toggleTodoMock).toHaveBeenCalledWith(1);
     expect(deleteTodoMock).toHaveBeenCalledWith(1);
+  });
+
+  it('waits for backend logout and returns to the login view', async () => {
+    getCurrentUserMock.mockResolvedValue({ id: '1', email: 'user@example.com', roles: ['User'] });
+    const wrapper = mountApp();
+    await flushPromises();
+
+    const logoutButton = wrapper.findAll('button').find(button => button.text().includes('Logout'));
+    expect(logoutButton).toBeDefined();
+    await logoutButton!.trigger('click');
+    await flushPromises();
+
+    expect(logoutMock).toHaveBeenCalledOnce();
+    expect(wrapper.find('input[placeholder="name@example.com"]').exists()).toBe(true);
   });
 });

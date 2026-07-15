@@ -125,6 +125,25 @@ public sealed class AccountAdministrationEndpointsTests
         (await oldClient.GetAsync("/api/auth/me")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
+    [Fact]
+    public async Task SetRoles_WhenRolesAreUnchanged_PreservesExistingSession()
+    {
+        await using var factory = CreateFactory();
+        var adminClient = factory.CreateClient();
+        var (admin, _) = await CreateAdminAsync(factory, adminClient);
+        var (target, targetToken) = await RegisterAsync(adminClient);
+        await LoginAsAsync(adminClient, admin.Email);
+
+        var response = await adminClient.PutAsJsonAsync(
+            $"/api/admin/users/{target.Id}/roles",
+            new UpdateUserRolesRequest([AppRoles.User]));
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var targetClient = factory.CreateClient();
+        targetClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", targetToken);
+        (await targetClient.GetAsync("/api/auth/me")).StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
     [Theory]
     [InlineData("Unknown")]
     [InlineData("Admin")]

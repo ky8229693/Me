@@ -27,16 +27,18 @@ The backend SHALL read PostgreSQL connection settings and JWT settings from conf
 - **THEN** issuer, audience, signing key, and token lifetime settings MUST be read from configuration
 
 ### Requirement: Authentication APIs use the shared response envelope
-The backend SHALL expose authentication endpoints under `/api` that return `ApiResponse<T>` payloads while preserving appropriate HTTP status codes and SHALL include the user's current roles in successful authentication user data.
+The backend SHALL expose authentication endpoints under `/api` that return `ApiResponse<T>` payloads while preserving appropriate HTTP status codes, SHALL include the user's current roles in successful authentication user data, and SHALL register each issued bearer token as an active server-side session.
 
 #### Scenario: User registration
 - **WHEN** a valid registration request is submitted
 - **THEN** the API MUST create an Identity user, assign the default `User` role, and return a successful `ApiResponse<T>` payload containing the user's current roles
+- **THEN** the returned bearer token MUST have an active Memory allowlist session
 
 #### Scenario: User login
 - **WHEN** valid credentials for an enabled account are submitted
 - **THEN** the API MUST ensure an account without roles receives the default `User` role
 - **THEN** the API MUST return a successful `ApiResponse<T>` payload containing a bearer token, basic user information, and current roles
+- **THEN** the returned bearer token MUST have an active Memory allowlist session
 
 #### Scenario: Invalid credentials
 - **WHEN** invalid credentials are submitted
@@ -47,19 +49,23 @@ The backend SHALL expose authentication endpoints under `/api` that return `ApiR
 - **THEN** the API MUST reject login without disclosing whether the account is disabled
 
 #### Scenario: Current authenticated user
-- **WHEN** an authenticated request asks for the current user
+- **WHEN** an authenticated request with an active session asks for the current user
 - **THEN** the API MUST return the current user's basic identity information and current roles
 
+#### Scenario: Authenticated logout
+- **WHEN** an authenticated user submits logout with an active JWT session
+- **THEN** the API MUST revoke the current `jti` session and return a successful shared response
+
 ### Requirement: JWT bearer authentication protects authenticated API behavior
-The backend SHALL validate JWT bearer tokens for endpoints that require an authenticated user, SHALL include the user's current Identity roles and security stamp when issuing tokens, and SHALL reject tokens whose account state or security stamp is no longer current.
+The backend SHALL validate JWT bearer tokens for endpoints that require an authenticated user, SHALL include the user's current Identity roles and a unique `jti` when issuing tokens, and SHALL reject tokens whose server-side session is not active.
 
 #### Scenario: Missing token
 - **WHEN** a request without a bearer token calls an authenticated endpoint
 - **THEN** the API MUST reject the request as unauthorized
 
 #### Scenario: Valid current token
-- **WHEN** a request with a valid bearer token for an enabled user has a security stamp matching the current Identity record
-- **THEN** the API MUST allow the request and resolve the authenticated user
+- **WHEN** a request provides a cryptographically valid, unexpired bearer token whose `jti` and user id match an active Memory allowlist entry
+- **THEN** the API MUST allow the request and resolve identity and roles from the token claims
 
 #### Scenario: Role claims are issued
 - **WHEN** the backend issues a JWT for a user with one or more Identity roles
@@ -67,14 +73,16 @@ The backend SHALL validate JWT bearer tokens for endpoints that require an authe
 
 #### Scenario: Account is disabled after token issuance
 - **WHEN** a token was issued before its Identity account was disabled
-- **THEN** the backend MUST reject the token as unauthorized on the next protected request
+- **THEN** the backend MUST revoke all sessions for that user before returning mutation success
+- **THEN** the backend MUST reject the old token as unauthorized on the next protected request
 
-#### Scenario: Security stamp changes after token issuance
-- **WHEN** a token contains a security stamp that no longer matches the current Identity user
-- **THEN** the backend MUST reject the token as unauthorized
+#### Scenario: Security-relevant user state changes after token issuance
+- **WHEN** a user's enabled state, roles, role names, or security stamp changes successfully
+- **THEN** the backend MUST revoke every active session for the affected user
+- **THEN** the backend MUST reject each old token as unauthorized on the next protected request
 
 ### Requirement: Frontend auth client integrates with the API layer
-The frontend SHALL provide authentication API helpers and token handling through the existing frontend API boundary.
+The frontend SHALL provide authentication API helpers and token handling through the existing frontend API boundary, and SHALL notify the backend when the current session logs out.
 
 #### Scenario: Login API call
 - **WHEN** the frontend submits login credentials
@@ -86,7 +94,8 @@ The frontend SHALL provide authentication API helpers and token handling through
 
 #### Scenario: Logout state clearing
 - **WHEN** the frontend logout flow is triggered
-- **THEN** local authentication state MUST be cleared so later API requests are sent without the previous token
+- **THEN** the auth API helper MUST attempt an authenticated backend logout request
+- **THEN** local authentication state MUST be cleared whether backend logout succeeds, returns unauthorized, or fails because of network connectivity
 
 ### Requirement: Authentication foundation has focused test coverage
 The project SHALL include backend and frontend tests for the authentication foundation behavior introduced by this change.

@@ -1,9 +1,12 @@
 using Microsoft.AspNetCore.Identity;
 using WEB_Demo.Api.Authorization;
+using WEB_Demo.Api.Services;
 
 namespace WEB_Demo.Api.Bootstrap;
 
-public sealed class AdminBootstrapService(UserManager<IdentityUser> userManager)
+public sealed class AdminBootstrapService(
+    UserManager<IdentityUser> userManager,
+    IJwtSessionRegistry sessionRegistry)
 {
     public async Task<AdminBootstrapResult> BootstrapAsync(
         string email,
@@ -84,6 +87,8 @@ public sealed class AdminBootstrapService(UserManager<IdentityUser> userManager)
 
             return AdminBootstrapResult.Failure("Unable to finalize Admin bootstrap.");
         }
+
+        sessionRegistry.RevokeAll(user.Id);
 
         return AdminBootstrapResult.Success(created
             ? $"Admin account created for {email}."

@@ -54,10 +54,45 @@ describe('auth API', () => {
     expect(window.localStorage.getItem('web_demo.auth_token')).toBe('register-token');
   });
 
-  it('clears the access token on logout', () => {
+  it('revokes the backend session and clears the access token on logout', async () => {
     window.localStorage.setItem('web_demo.auth_token', 'old-token');
+    const fetchMock = vi.fn().mockResolvedValue(mockApiResponse({
+      success: true,
+      message: 'Logged out.',
+      data: null,
+      errorCode: null
+    }));
+    vi.stubGlobal('fetch', fetchMock);
 
-    logout();
+    await logout();
+
+    expect(window.localStorage.getItem('web_demo.auth_token')).toBeNull();
+    expect(fetchMock).toHaveBeenCalledWith('/api/auth/logout', expect.objectContaining({ method: 'POST' }));
+  });
+
+  it('clears the access token when backend logout is unauthorized', async () => {
+    window.localStorage.setItem('web_demo.auth_token', 'expired-token');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      text: vi.fn().mockResolvedValue(JSON.stringify({
+        success: false,
+        message: 'Authentication is required.',
+        data: null,
+        errorCode: 'Unauthorized'
+      }))
+    } as unknown as Response));
+
+    await logout();
+
+    expect(window.localStorage.getItem('web_demo.auth_token')).toBeNull();
+  });
+
+  it('clears the access token when backend logout has a network failure', async () => {
+    window.localStorage.setItem('web_demo.auth_token', 'old-token');
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')));
+
+    await logout();
 
     expect(window.localStorage.getItem('web_demo.auth_token')).toBeNull();
   });

@@ -27,6 +27,8 @@ builder.Services.Configure<ApiCorsOptions>(
     builder.Configuration.GetSection(ApiCorsOptions.SectionName));
 builder.Services.Configure<JwtOptions>(
     builder.Configuration.GetSection(JwtOptions.SectionName));
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<IJwtSessionRegistry, InMemoryJwtSessionRegistry>();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -63,18 +65,19 @@ builder.Services
         {
             OnTokenValidated = async context =>
             {
-                var userManager = context.HttpContext.RequestServices
-                    .GetRequiredService<UserManager<IdentityUser>>();
+                var sessionRegistry = context.HttpContext.RequestServices
+                    .GetRequiredService<IJwtSessionRegistry>();
                 var userId = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
-                var tokenStamp = context.Principal?.FindFirstValue(AppClaimTypes.SecurityStamp);
-                var user = userId is null ? null : await userManager.FindByIdAsync(userId);
+                var jwtId = context.Principal?.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Jti);
 
-                if (user is null || await userManager.IsLockedOutAsync(user) ||
-                    string.IsNullOrEmpty(tokenStamp) ||
-                    !string.Equals(user.SecurityStamp, tokenStamp, StringComparison.Ordinal))
+                if (string.IsNullOrWhiteSpace(userId) ||
+                    string.IsNullOrWhiteSpace(jwtId) ||
+                    !sessionRegistry.IsActive(jwtId, userId))
                 {
                     context.Fail("The token is no longer valid.");
                 }
+
+                await Task.CompletedTask;
             },
             OnChallenge = async context =>
             {

@@ -12,7 +12,8 @@ public sealed class RoleAdministrationService(
     RoleManager<IdentityRole> roleManager,
     UserManager<IdentityUser> userManager,
     RoleNameValidator nameValidator,
-    AppDbContext dbContext)
+    AppDbContext dbContext,
+    IJwtSessionRegistry sessionRegistry)
 {
     public async Task<AdministrationResult<IReadOnlyCollection<AdminRole>>> GetRolesAsync()
     {
@@ -65,6 +66,11 @@ public sealed class RoleAdministrationService(
         }
 
         await CommitAsync(transaction);
+        foreach (var userId in userIds)
+        {
+            sessionRegistry.RevokeAll(userId);
+        }
+
         return AdministrationResult<AdminRole>.Success(ToAdminRole(role, userIds.Length), "Role renamed.");
     }
 

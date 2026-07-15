@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.IdentityModel.Tokens.Jwt;
 using Microsoft.AspNetCore.Identity;
 using WEB_Demo.Api.Authorization;
 using WEB_Demo.Api.Models;
@@ -84,8 +85,16 @@ public static class AuthEndpoints
             return Results.Ok(ApiResponse<AuthUser>.Ok(new AuthUser(userId ?? string.Empty, email, roles.ToArray())));
         }).RequireAuthorization();
 
-        group.MapPost("/logout", () =>
-            Results.Ok(ApiResponse<object>.Ok(null, "Logged out.")));
+        group.MapPost("/logout", (ClaimsPrincipal principal, IJwtSessionRegistry sessionRegistry) =>
+        {
+            var jwtId = principal.FindFirstValue(JwtRegisteredClaimNames.Jti);
+            if (!string.IsNullOrWhiteSpace(jwtId))
+            {
+                sessionRegistry.Revoke(jwtId);
+            }
+
+            return Results.Ok(ApiResponse<object>.Ok(null, "Logged out."));
+        }).RequireAuthorization();
 
         return endpoints;
     }

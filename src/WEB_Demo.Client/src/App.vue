@@ -21,7 +21,7 @@ async function loadCurrentUser() {
     authUser.value = await getCurrentUser();
   } catch {
     authUser.value = null;
-    logout();
+    await logout();
   }
 }
 
@@ -35,8 +35,8 @@ function refreshDashboard() {
   dashboardRefreshKey.value += 1;
 }
 
-function signOut() {
-  logout();
+async function signOut() {
+  await logout();
   authUser.value = null;
   activeView.value = 'dashboard';
   toast.add({ severity: 'success', detail: 'Signed out.', life: 2600 });

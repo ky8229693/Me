@@ -52,12 +52,18 @@ public sealed class RoleAdministrationEndpointsTests
 
         var reloginToken = await LoginAsAsync(client, target.Email);
         await LoginAsAsync(client, admin.Email);
+        var targetClient = factory.CreateClient();
+        targetClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", reloginToken);
+        var invalidRename = await client.PutAsJsonAsync($"/api/admin/roles/{created.Data.Id}",
+            new UpdateRoleRequest("A!"));
+        invalidRename.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await targetClient.GetAsync("/api/auth/me")).StatusCode.Should().Be(HttpStatusCode.OK);
+
         var rename = await client.PutAsJsonAsync($"/api/admin/roles/{created.Data.Id}",
             new UpdateRoleRequest("Support_Team"));
         rename.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await client.GetAsync("/api/admin/status")).StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var targetClient = factory.CreateClient();
-        targetClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", reloginToken);
         (await targetClient.GetAsync("/api/auth/me")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
 
         await LoginAsAsync(client, admin.Email);

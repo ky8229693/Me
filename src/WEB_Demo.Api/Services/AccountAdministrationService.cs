@@ -11,7 +11,8 @@ namespace WEB_Demo.Api.Services;
 public sealed class AccountAdministrationService(
     UserManager<IdentityUser> userManager,
     RoleManager<IdentityRole> roleManager,
-    AppDbContext dbContext)
+    AppDbContext dbContext,
+    IJwtSessionRegistry sessionRegistry)
 {
     public const int DefaultPageSize = 10;
     public const int MaximumPageSize = 100;
@@ -105,6 +106,7 @@ public sealed class AccountAdministrationService(
         }
 
         await CommitAsync(transaction);
+        sessionRegistry.RevokeAll(user.Id);
         return AdministrationResult<AdminUser>.Success(
             await ToAdminUserAsync(user),
             isEnabled ? "Account enabled." : "Account disabled.");
@@ -194,6 +196,7 @@ public sealed class AccountAdministrationService(
         }
 
         await CommitAsync(transaction);
+        sessionRegistry.RevokeAll(user.Id);
         return AdministrationResult<AdminUser>.Success(await ToAdminUserAsync(user), "Roles updated.");
     }
 
