@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using WEB_Demo.Api.Authorization;
@@ -106,16 +107,21 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy(AppPolicies.AdminOnly, policy =>
         policy.RequireRole(AppRoles.Admin));
 });
+builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
+builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
 builder.Services.AddSingleton<ITodoService, InMemoryTodoService>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
 builder.Services.AddScoped<IRefreshCookieService, RefreshCookieService>();
 builder.Services.AddScoped<IUserSessionRevocationService, UserSessionRevocationService>();
+builder.Services.AddScoped<IPermissionResolver, PermissionResolver>();
 builder.Services.AddScoped<AppRoleInitializer>();
+builder.Services.AddScoped<PermissionCatalogInitializer>();
 builder.Services.AddScoped<AdminBootstrapService>();
 builder.Services.AddScoped<AccountAdministrationService>();
 builder.Services.AddScoped<RoleNameValidator>();
 builder.Services.AddScoped<RoleAdministrationService>();
+builder.Services.AddScoped<PermissionAdministrationService>();
 builder.Services.AddScoped<E2EDatabaseLifecycleService>();
 builder.Services.AddHealthChecks();
 
@@ -154,6 +160,7 @@ if (E2EDatabaseCommand.IsRequested(args))
     if (result.Succeeded && command.Action == "prepare")
     {
         await scope.ServiceProvider.GetRequiredService<AppRoleInitializer>().InitializeAsync();
+        await scope.ServiceProvider.GetRequiredService<PermissionCatalogInitializer>().InitializeAsync();
         var password = command.ReadPassword();
         var bootstrap = string.IsNullOrWhiteSpace(password)
             ? AdminBootstrapResult.Failure("The E2E Admin password environment variable is missing.")
@@ -171,7 +178,13 @@ if (E2EDatabaseCommand.IsRequested(args))
 
 using (var scope = app.Services.CreateScope())
 {
+    var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    if (dbContext.Database.IsRelational())
+    {
+        await dbContext.Database.MigrateAsync();
+    }
     await scope.ServiceProvider.GetRequiredService<AppRoleInitializer>().InitializeAsync();
+    await scope.ServiceProvider.GetRequiredService<PermissionCatalogInitializer>().InitializeAsync();
 }
 
 if (AdminBootstrapCommand.IsRequested(args))

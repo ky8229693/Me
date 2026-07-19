@@ -154,3 +154,20 @@ npm run build
 ```powershell
 npm run spec:validate
 ```
+# Permission-based RBAC
+
+Permission definitions are code-owned in `Authorization/AppPermissions.cs`; do not create permission keys directly in the database or UI. Current endpoint mapping:
+
+| Permission | Scope |
+| --- | --- |
+| `users.read` | Read user directory and account details |
+| `users.manage` | Enable accounts and assign roles |
+| `roles.read` | Read role directory and permission summaries |
+| `roles.manage` | Create, rename, and delete custom roles |
+| `permissions.manage` | Read the catalog and update Role–Permission mappings |
+| `todos.read` | Reserved for Todo read authorization |
+| `todos.manage` | Reserved for Todo mutations |
+
+`Admin` is the break-glass system role and always resolves the complete catalog. Use custom roles for least-privilege daily administration. Role–Permission changes update affected users' security stamps and revoke their access sessions and refresh families.
+
+Deployments that introduce Permission policies must apply the EF migration before startup. Startup applies pending relational migrations and synchronizes the fixed catalog. Existing access tokens without Permission claims fail closed on Permission-protected endpoints; users must refresh or sign in again.

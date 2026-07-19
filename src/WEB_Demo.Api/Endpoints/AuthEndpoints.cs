@@ -128,8 +128,10 @@ public static class AuthEndpoints
             var email = principal.FindFirstValue(ClaimTypes.Email) ?? string.Empty;
             var user = userId is null ? null : await userManager.FindByIdAsync(userId);
             var roles = user is null ? [] : await userManager.GetRolesAsync(user);
+            var permissions = principal.FindAll(AppClaimTypes.Permission).Select(claim => claim.Value)
+                .Where(AppPermissions.IsKnown).Distinct(StringComparer.Ordinal).OrderBy(key => key).ToArray();
 
-            return Results.Ok(ApiResponse<AuthUser>.Ok(new AuthUser(userId ?? string.Empty, email, roles.ToArray())));
+            return Results.Ok(ApiResponse<AuthUser>.Ok(new AuthUser(userId ?? string.Empty, email, roles.ToArray(), permissions)));
         }).RequireAuthorization();
 
         group.MapPost("/logout", async (

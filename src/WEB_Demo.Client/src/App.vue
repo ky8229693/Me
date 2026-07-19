@@ -11,6 +11,7 @@ import AdminRolesView from './views/AdminRolesView.vue';
 import LoginView from './views/LoginView.vue';
 import type { MenuItem } from './layout/types';
 import { onSessionExpired } from './api/authSession';
+import { hasPermission, permissions } from './auth/permissions';
 
 const toast = useToast();
 const authUser = ref<AuthUser | null>(null);
@@ -75,8 +76,8 @@ onUnmounted(() => stopSessionExpiredListener?.());
     @refresh="refreshDashboard"
     @logout="signOut"
   >
-    <AdminUsersView v-if="activeView === 'users' && authUser.roles.includes('Admin')" :current-user-id="authUser.id" />
-    <AdminRolesView v-else-if="activeView === 'roles' && authUser.roles.includes('Admin')" />
+    <AdminUsersView v-if="activeView === 'users' && hasPermission(authUser, permissions.usersRead)" :current-user-id="authUser.id" />
+    <AdminRolesView v-else-if="activeView === 'roles' && hasPermission(authUser, permissions.rolesRead)" :current-user="authUser" />
     <DashboardView v-else :refresh-key="dashboardRefreshKey" />
   </AppLayout>
 </template>

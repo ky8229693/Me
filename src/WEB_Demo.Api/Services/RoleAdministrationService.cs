@@ -22,8 +22,19 @@ public sealed class RoleAdministrationService(
             .GroupBy(item => item.RoleId)
             .Select(group => new { RoleId = group.Key, Count = group.Count() })
             .ToDictionaryAsync(item => item.RoleId, item => item.Count);
+        var mappings = await dbContext.RolePermissions.AsNoTracking()
+            .Where(item => AppPermissions.AllKeys.Contains(item.Permission.Key))
+            .GroupBy(item => item.RoleId)
+            .ToDictionaryAsync(group => group.Key, group => group.Select(item => item.Permission.Key).OrderBy(key => key).ToArray());
         return AdministrationResult<IReadOnlyCollection<AdminRole>>.Success(
-            roles.Select(role => ToAdminRole(role, counts.GetValueOrDefault(role.Id))).ToArray());
+            roles.Select(role => new AdminRole(
+                role.Id,
+                role.Name ?? string.Empty,
+                AppRoles.IsSystemRole(role.Name),
+                counts.GetValueOrDefault(role.Id),
+                string.Equals(role.Name, AppRoles.Admin, StringComparison.OrdinalIgnoreCase)
+                    ? AppPermissions.AllKeys.OrderBy(key => key).ToArray()
+                    : mappings.GetValueOrDefault(role.Id, []))).ToArray());
     }
 
     public async Task<AdministrationResult<AdminRole>> CreateAsync(string? name)

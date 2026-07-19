@@ -4,6 +4,7 @@ import type { AuthUser } from '../api/types';
 import AppSidebar from './AppSidebar.vue';
 import AppTopbar from './AppTopbar.vue';
 import type { MenuItem } from './types';
+import { hasPermission, permissions } from '../auth/permissions';
 
 const props = defineProps<{
   user: AuthUser;
@@ -21,8 +22,10 @@ const menuItems = computed<MenuItem[]>(() => {
   const items: MenuItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: 'pi pi-home', active: props.activeView === 'dashboard' }
   ];
-  if (props.user.roles.includes('Admin')) {
+  if (hasPermission(props.user, permissions.usersRead)) {
     items.push({ id: 'users', label: 'User Management', icon: 'pi pi-users', active: props.activeView === 'users' });
+  }
+  if (hasPermission(props.user, permissions.rolesRead)) {
     items.push({ id: 'roles', label: 'Role Management', icon: 'pi pi-shield', active: props.activeView === 'roles' });
   }
   return items;

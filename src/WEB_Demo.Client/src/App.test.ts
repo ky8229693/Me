@@ -54,7 +54,15 @@ function mountApp(): VueWrapper {
 }
 
 function restoredSession(user: { id: string; email: string; roles: string[] }) {
-  return { accessToken: 'restored-token', expiresAt: '2026-07-16T00:00:00Z', user };
+  return {
+    accessToken: 'restored-token', expiresAt: '2026-07-16T00:00:00Z',
+    user: {
+      ...user,
+      permissions: user.roles.includes('Admin')
+        ? ['users.read', 'users.manage', 'roles.read', 'roles.manage', 'permissions.manage']
+        : []
+    }
+  };
 }
 
 describe('App', () => {

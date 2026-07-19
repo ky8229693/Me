@@ -4,6 +4,7 @@ using System.Text;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using WEB_Demo.Api.Authorization;
 using WEB_Demo.Api.Models;
 using WEB_Demo.Api.Options;
 
@@ -12,6 +13,7 @@ namespace WEB_Demo.Api.Services;
 public sealed class JwtTokenService(
     IOptions<JwtOptions> options,
     UserManager<IdentityUser> userManager,
+    IPermissionResolver permissionResolver,
     IJwtSessionRegistry sessionRegistry) : IJwtTokenService
 {
     private readonly JwtOptions _options = options.Value;
@@ -34,7 +36,9 @@ public sealed class JwtTokenService(
         };
 
         var roles = await userManager.GetRolesAsync(user);
+        var permissions = await permissionResolver.GetForRolesAsync(roles);
         claims.AddRange(roles.Select(role => new Claim(ClaimTypes.Role, role)));
+        claims.AddRange(permissions.Select(permission => new Claim(AppClaimTypes.Permission, permission)));
 
         var token = new JwtSecurityToken(
             issuer: _options.Issuer,
@@ -49,6 +53,6 @@ public sealed class JwtTokenService(
         return new AuthResponse(
             accessToken,
             expiresAt,
-            new AuthUser(user.Id, user.Email ?? string.Empty, roles.ToArray()));
+            new AuthUser(user.Id, user.Email ?? string.Empty, roles.ToArray(), permissions));
     }
 }

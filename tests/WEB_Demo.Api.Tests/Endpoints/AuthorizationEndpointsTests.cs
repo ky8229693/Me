@@ -101,6 +101,27 @@ public sealed class AuthorizationEndpointsTests
         roleNames.Count(name => name == AppRoles.User).Should().Be(1);
     }
 
+    [Fact]
+    public async Task PermissionInitializer_WhenRunTwice_KeepsCatalogUniqueAndAdminComplete()
+    {
+        await using var factory = CreateFactory();
+        _ = factory.CreateClient();
+
+        await using var scope = factory.Services.CreateAsyncScope();
+        var initializer = scope.ServiceProvider.GetRequiredService<PermissionCatalogInitializer>();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+
+        await initializer.InitializeAsync();
+        await initializer.InitializeAsync();
+
+        (await dbContext.Permissions.Select(item => item.Key).ToArrayAsync())
+            .Should().BeEquivalentTo(AppPermissions.AllKeys);
+        var admin = await roleManager.FindByNameAsync(AppRoles.Admin);
+        (await dbContext.RolePermissions.Where(item => item.RoleId == admin!.Id).CountAsync())
+            .Should().Be(AppPermissions.AllKeys.Count);
+    }
+
     private static async Task<AuthResponse> RegisterAsync(
         HttpClient client,
         string? email = null,

@@ -11,7 +11,10 @@ vi.mock('../api/adminRoles', () => ({
   getAdminRoles: vi.fn(),
   createAdminRole: vi.fn(),
   renameAdminRole: vi.fn(),
-  deleteAdminRole: vi.fn()
+  deleteAdminRole: vi.fn(),
+  getPermissionCatalog: vi.fn(),
+  getRolePermissions: vi.fn(),
+  updateRolePermissions: vi.fn()
 }));
 
 const getRoles = vi.mocked(roleApi.getAdminRoles);
@@ -28,7 +31,15 @@ describe('AdminRolesView', () => {
   });
 
   it('shows restrictions and creates a custom role', async () => {
-    const wrapper = mount(AdminRolesView, { global: { plugins: [[PrimeVue, { theme: { preset: Aura } }]] } });
+    const wrapper = mount(AdminRolesView, {
+      props: {
+        currentUser: {
+          id: 'admin', email: 'admin@example.com', roles: ['Admin'],
+          permissions: ['roles.read', 'roles.manage', 'permissions.manage']
+        }
+      },
+      global: { plugins: [[PrimeVue, { theme: { preset: Aura } }]] }
+    });
     await flushPromises();
     expect(wrapper.text()).toContain('System');
     expect(wrapper.find('input[aria-label="Role name Support"]').element).toHaveProperty('value', 'Support');

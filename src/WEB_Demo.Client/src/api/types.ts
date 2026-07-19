@@ -30,6 +30,7 @@ export type AuthUser = {
   id: string;
   email: string;
   roles: string[];
+  permissions: string[];
 };
 
 export type AuthResponse = {
@@ -60,6 +61,21 @@ export type AdminRole = {
   name: string;
   isSystem: boolean;
   userCount: number;
+  permissions?: string[];
+};
+
+export type PermissionInfo = {
+  key: string;
+  name: string;
+  description: string;
+  category: string;
+};
+
+export type RolePermissions = {
+  roleId: string;
+  roleName: string;
+  isSystem: boolean;
+  permissions: string[];
 };
 
 export type PagedResult<T> = {

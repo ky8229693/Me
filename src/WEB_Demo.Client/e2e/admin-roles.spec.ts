@@ -17,6 +17,9 @@ test('Admin 可以建立、指派、改名並刪除自訂 role', async ({ page }
   await page.getByRole('button', { name: 'Create role' }).click();
   const roleRow = page.getByRole('row').filter({ has: page.getByLabel(`Role name ${roleName}`) });
   await expect(roleRow).toBeVisible();
+  await roleRow.getByRole('button', { name: 'Permissions' }).click();
+  await page.getByText('View roles', { exact: true }).click();
+  await page.getByRole('button', { name: 'Save permissions' }).click();
 
   await page.getByRole('button', { name: 'User Management' }).click();
   await page.getByLabel('Search by email').fill(target.email);
@@ -26,6 +29,14 @@ test('Admin 可以建立、指派、改名並刪除自訂 role', async ({ page }
   await page.getByRole('option', { name: roleName, exact: true }).click();
   await page.keyboard.press('Escape');
   await userRow.getByRole('button', { name: 'Save roles' }).click();
+
+  await page.getByRole('button', { name: 'Logout' }).click();
+  await loginThroughUi(page, target.email, target.password);
+  await expect(page.getByRole('button', { name: 'Role Management' })).toBeVisible();
+  await page.getByRole('button', { name: 'Role Management' }).click();
+  await expect(page.getByRole('button', { name: 'Create role' })).toBeDisabled();
+  await page.getByRole('button', { name: 'Logout' }).click();
+  await loginThroughUi(page, e2eAdmin.email, e2eAdmin.password);
 
   await page.getByRole('button', { name: 'Role Management' }).click();
   await expect(page.getByRole('row').filter({ has: page.getByLabel(`Role name ${roleName}`) })
