@@ -24,5 +24,7 @@ public sealed class Project
     public DateTimeOffset UpdatedAt { get; set; }
     public ICollection<ProjectMembership> Memberships { get; set; } = [];
     public ICollection<ProjectAuditEvent> AuditEvents { get; set; } = [];
+    public ICollection<Issue> Issues { get; set; } = [];
+    public ICollection<IssueHistory> IssueHistory { get; set; } = [];
+    public ICollection<IssueComment> IssueComments { get; set; } = [];
 }
-

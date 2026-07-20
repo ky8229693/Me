@@ -125,6 +125,7 @@ builder.Services.AddScoped<RoleAdministrationService>();
 builder.Services.AddScoped<PermissionAdministrationService>();
 builder.Services.AddScoped<ProjectAccessService>();
 builder.Services.AddScoped<ProjectAdministrationService>();
+builder.Services.AddScoped<IssueAdministrationService>();
 builder.Services.AddScoped<E2EDatabaseLifecycleService>();
 builder.Services.AddHealthChecks();
 
@@ -251,6 +252,7 @@ app.MapAdminEndpoints();
 app.MapHealthEndpoints();
 app.MapTodoEndpoints();
 app.MapProjectEndpoints();
+app.MapIssueEndpoints();
 
 app.Run();
 

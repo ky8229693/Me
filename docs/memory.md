@@ -1,6 +1,6 @@
 # Project Memory
 
-最後更新：2026-07-15
+最後更新：2026-07-20
 
 本文件只記錄無法輕易從程式碼看出、跨 OpenSpec changes 仍有價值的專案脈絡。開發規範以 [`AGENTS.md`](../AGENTS.md) 為準；指令與環境設定請見 [`development.md`](development.md)，前端設計原則請見 [`ui-guidelines.md`](ui-guidelines.md)。目前 change 與歷史紀錄應使用 OpenSpec CLI 與 `openspec/changes/archive/` 查詢，不在此手動維護清單。
 
@@ -41,6 +41,16 @@
 - 導覽由資料模型產生並由 layout 集中管理 active state 與授權可見性。
 - 常見操作優先使用現有 PrimeVue components，視覺沿用 Aura theme 與既有 CSS variables，避免沒有需求的額外 UI dependencies。
 - 新增 UI 互動時補 unit tests；desktop 與 mobile 行為不同時，至少固定 state class、navigation event 與授權顯示條件。
+
+## PMS Issue Foundation
+
+- Issue 直接隸屬 Project；Project membership 是唯一資料存取邊界，System Admin 沒有跨 Project bypass。
+- Issue type 固定為 Feature、Bug、ChangeRequest；priority 固定為 Low、Medium、High、Critical。
+- 第一版 workflow 固定為 Draft → Approved → InProgress → QA → Done，僅支援規格明列的退回與重新開啟，不提供自訂 workflow。
+- Owner／Manager 管理所有 Issue；Member 可建立、編輯自己的 Draft、留言及推進指派給自己的工作；Viewer 唯讀。
+- Issue assignee 必須是目前 Project member；移除成員時清除該 Project 的 Issue assignments 並保留 append-only history。
+- Project 封存後 Issue、assignment、workflow 與 comments 全部唯讀；Issue 與 comment 不提供刪除，comment 亦不提供修改。
+- Issue foundation 不包含附件、通知、子任務、標籤、工時、看板、文件／API 關聯、報表或 AI；這些需以後續 change 規劃。
 
 ## 當前技術限制
 

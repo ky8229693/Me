@@ -207,6 +207,25 @@ public sealed class ProjectAdministrationService(
 
         var result = ToMemberInfo(target, target.User);
         var now = DateTimeOffset.UtcNow;
+        var assignedIssues = await dbContext.Issues
+            .Where(item => item.ProjectId == projectId && item.AssigneeUserId == targetUserId)
+            .ToArrayAsync();
+        foreach (var issue in assignedIssues)
+        {
+            issue.AssigneeUserId = null;
+            issue.UpdatedAt = now;
+            dbContext.IssueHistory.Add(new IssueHistory
+            {
+                ProjectId = projectId,
+                IssueId = issue.Id,
+                ActorUserId = actorUserId,
+                ChangeType = IssueHistoryChangeType.AssignmentChanged,
+                FieldName = nameof(Issue.AssigneeUserId),
+                PreviousValue = targetUserId,
+                NewValue = null,
+                CreatedAt = now
+            });
+        }
         dbContext.ProjectMemberships.Remove(target);
         AddAudit(projectId, actorUserId, "membership.removed", "User", targetUserId, target.Role.ToString(), null, now);
         await dbContext.SaveChangesAsync();

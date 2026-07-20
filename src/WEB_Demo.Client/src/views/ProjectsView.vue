@@ -18,6 +18,7 @@ import {
   updateProject, updateProjectMemberRole
 } from '../api/projects';
 import { hasPermission, permissions } from '../auth/permissions';
+import IssueWorkspace from '../features/issues/IssueWorkspace.vue';
 
 const props = defineProps<{ currentUser: AuthUser }>();
 const toast = useToast();
@@ -227,6 +228,7 @@ onMounted(loadProjects);
         </Column>
         <Column header="Actions"><template #body="{ data }"><div class="row-actions"><Button label="Save role" size="small" :disabled="!canManageMembers || !canManageMember(data) || roleDrafts[data.userId] === data.role" @click="saveMemberRole(data)" /><Button label="Remove" size="small" severity="danger" :disabled="!canManageMembers || !canManageMember(data)" @click="removeMember(data)" /></div></template></Column>
       </DataTable>
+      <IssueWorkspace v-if="selectedProject" :project="selectedProject" :members="members" :current-user="currentUser" />
     </Dialog>
 
     <Dialog v-model:visible="createVisible" modal header="Create project" :style="{ width: '32rem' }">

@@ -13,6 +13,9 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<Project> Projects => Set<Project>();
     public DbSet<ProjectMembership> ProjectMemberships => Set<ProjectMembership>();
     public DbSet<ProjectAuditEvent> ProjectAuditEvents => Set<ProjectAuditEvent>();
+    public DbSet<Issue> Issues => Set<Issue>();
+    public DbSet<IssueHistory> IssueHistory => Set<IssueHistory>();
+    public DbSet<IssueComment> IssueComments => Set<IssueComment>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -97,6 +100,65 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
                 .HasForeignKey(item => item.ProjectId).OnDelete(DeleteBehavior.Cascade);
             entity.HasOne(item => item.ActorUser).WithMany()
                 .HasForeignKey(item => item.ActorUserId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<Issue>(entity =>
+        {
+            entity.ToTable("Issues");
+            entity.HasKey(item => item.Id);
+            entity.Property(item => item.Title).HasMaxLength(200).IsRequired();
+            entity.Property(item => item.Description).HasMaxLength(10000);
+            entity.Property(item => item.Type).HasConversion<string>().HasMaxLength(20).IsRequired();
+            entity.Property(item => item.Priority).HasConversion<string>().HasMaxLength(20).IsRequired();
+            entity.Property(item => item.Status).HasConversion<string>().HasMaxLength(20).IsRequired();
+            entity.Property(item => item.CreatorUserId).HasMaxLength(450).IsRequired();
+            entity.Property(item => item.AssigneeUserId).HasMaxLength(450);
+            entity.HasIndex(item => new { item.ProjectId, item.UpdatedAt });
+            entity.HasIndex(item => new { item.ProjectId, item.Status });
+            entity.HasIndex(item => new { item.ProjectId, item.Type });
+            entity.HasIndex(item => new { item.ProjectId, item.Priority });
+            entity.HasIndex(item => new { item.ProjectId, item.AssigneeUserId });
+            entity.HasOne(item => item.Project).WithMany(project => project.Issues)
+                .HasForeignKey(item => item.ProjectId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(item => item.CreatorUser).WithMany()
+                .HasForeignKey(item => item.CreatorUserId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(item => item.AssigneeUser).WithMany()
+                .HasForeignKey(item => item.AssigneeUserId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<IssueHistory>(entity =>
+        {
+            entity.ToTable("IssueHistory");
+            entity.HasKey(item => item.Id);
+            entity.Property(item => item.ActorUserId).HasMaxLength(450).IsRequired();
+            entity.Property(item => item.ChangeType).HasConversion<string>().HasMaxLength(30).IsRequired();
+            entity.Property(item => item.FieldName).HasMaxLength(50);
+            entity.Property(item => item.PreviousValue).HasMaxLength(10000);
+            entity.Property(item => item.NewValue).HasMaxLength(10000);
+            entity.HasIndex(item => new { item.IssueId, item.CreatedAt });
+            entity.HasIndex(item => new { item.ProjectId, item.CreatedAt });
+            entity.HasOne(item => item.Project).WithMany(project => project.IssueHistory)
+                .HasForeignKey(item => item.ProjectId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(item => item.Issue).WithMany(issue => issue.History)
+                .HasForeignKey(item => item.IssueId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(item => item.ActorUser).WithMany()
+                .HasForeignKey(item => item.ActorUserId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<IssueComment>(entity =>
+        {
+            entity.ToTable("IssueComments");
+            entity.HasKey(item => item.Id);
+            entity.Property(item => item.AuthorUserId).HasMaxLength(450).IsRequired();
+            entity.Property(item => item.Content).HasMaxLength(5000).IsRequired();
+            entity.HasIndex(item => new { item.IssueId, item.CreatedAt });
+            entity.HasIndex(item => new { item.ProjectId, item.CreatedAt });
+            entity.HasOne(item => item.Project).WithMany(project => project.IssueComments)
+                .HasForeignKey(item => item.ProjectId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(item => item.Issue).WithMany(issue => issue.Comments)
+                .HasForeignKey(item => item.IssueId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(item => item.AuthorUser).WithMany()
+                .HasForeignKey(item => item.AuthorUserId).OnDelete(DeleteBehavior.Restrict);
         });
     }
 }
