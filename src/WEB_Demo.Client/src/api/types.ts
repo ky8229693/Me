@@ -78,6 +78,29 @@ export type RolePermissions = {
   permissions: string[];
 };
 
+export type ProjectInfo = {
+  id: string;
+  name: string;
+  description: string | null;
+  status: 'Active' | 'Archived';
+  currentUserRole: 'Owner' | 'Manager' | 'Member' | 'Viewer';
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ProjectMemberInfo = {
+  userId: string;
+  email: string;
+  role: 'Owner' | 'Manager' | 'Member' | 'Viewer';
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ProjectMemberCandidate = {
+  userId: string;
+  email: string;
+};
+
 export type PagedResult<T> = {
   items: T[];
   page: number;

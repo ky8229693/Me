@@ -76,6 +76,31 @@ public sealed class RoleAdministrationEndpointsTests
         listJson.Should().NotContain("normalizedName").And.NotContain("concurrencyStamp");
     }
 
+    [Fact]
+    public async Task Roles_WithAssignedPermissions_ReturnsPermissionSummary()
+    {
+        await using var factory = CreateFactory();
+        var client = factory.CreateClient();
+        var admin = await CreateAdminAsync(factory, client);
+        await LoginAsAsync(client, admin.Email);
+
+        var create = await client.PostAsJsonAsync("/api/admin/roles", new CreateRoleRequest("ProjectReader"));
+        var created = await create.Content.ReadFromJsonAsync<ApiResponse<AdminRole>>();
+        create.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var update = await client.PutAsJsonAsync(
+            $"/api/admin/roles/{created!.Data!.Id}/permissions",
+            new UpdateRolePermissionsRequest([AppPermissions.RolesRead]));
+        update.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var response = await client.GetAsync("/api/admin/roles");
+        var body = await response.Content.ReadFromJsonAsync<ApiResponse<IReadOnlyCollection<AdminRole>>>();
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        body!.Data!.Single(role => role.Id == created.Data.Id).Permissions
+            .Should().BeEquivalentTo([AppPermissions.RolesRead]);
+    }
+
     [Theory]
     [InlineData("admin")]
     [InlineData("A!")]

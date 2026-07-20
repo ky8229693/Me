@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using WEB_Demo.Api.Authorization;
 using WEB_Demo.Api.Bootstrap;
 using WEB_Demo.Api.Data;
@@ -122,6 +123,8 @@ builder.Services.AddScoped<AccountAdministrationService>();
 builder.Services.AddScoped<RoleNameValidator>();
 builder.Services.AddScoped<RoleAdministrationService>();
 builder.Services.AddScoped<PermissionAdministrationService>();
+builder.Services.AddScoped<ProjectAccessService>();
+builder.Services.AddScoped<ProjectAdministrationService>();
 builder.Services.AddScoped<E2EDatabaseLifecycleService>();
 builder.Services.AddHealthChecks();
 
@@ -138,7 +141,29 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "Paste the access token returned by /api/auth/login. Do not include the 'Bearer ' prefix."
+    });
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        [new OpenApiSecurityScheme
+        {
+            Reference = new OpenApiReference
+            {
+                Type = ReferenceType.SecurityScheme,
+                Id = "Bearer"
+            }
+        }] = []
+    });
+});
 
 var app = builder.Build();
 
@@ -225,6 +250,7 @@ app.MapAuthEndpoints();
 app.MapAdminEndpoints();
 app.MapHealthEndpoints();
 app.MapTodoEndpoints();
+app.MapProjectEndpoints();
 
 app.Run();
 

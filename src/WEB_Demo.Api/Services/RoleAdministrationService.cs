@@ -22,10 +22,15 @@ public sealed class RoleAdministrationService(
             .GroupBy(item => item.RoleId)
             .Select(group => new { RoleId = group.Key, Count = group.Count() })
             .ToDictionaryAsync(item => item.RoleId, item => item.Count);
-        var mappings = await dbContext.RolePermissions.AsNoTracking()
+        var mappingRows = await dbContext.RolePermissions.AsNoTracking()
             .Where(item => AppPermissions.AllKeys.Contains(item.Permission.Key))
+            .Select(item => new { item.RoleId, PermissionKey = item.Permission.Key })
+            .ToArrayAsync();
+        var mappings = mappingRows
             .GroupBy(item => item.RoleId)
-            .ToDictionaryAsync(group => group.Key, group => group.Select(item => item.Permission.Key).OrderBy(key => key).ToArray());
+            .ToDictionary(
+                group => group.Key,
+                group => group.Select(item => item.PermissionKey).OrderBy(key => key).ToArray());
         return AdministrationResult<IReadOnlyCollection<AdminRole>>.Success(
             roles.Select(role => new AdminRole(
                 role.Id,

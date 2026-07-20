@@ -5,7 +5,8 @@ export const permissions = {
   usersManage: 'users.manage',
   rolesRead: 'roles.read',
   rolesManage: 'roles.manage',
-  permissionsManage: 'permissions.manage'
+  permissionsManage: 'permissions.manage',
+  projectsCreate: 'projects.create'
 } as const;
 
 export function hasPermission(user: AuthUser | null, permission: string): boolean {

@@ -9,6 +9,7 @@ import DashboardView from './views/DashboardView.vue';
 import AdminUsersView from './views/AdminUsersView.vue';
 import AdminRolesView from './views/AdminRolesView.vue';
 import LoginView from './views/LoginView.vue';
+import ProjectsView from './views/ProjectsView.vue';
 import type { MenuItem } from './layout/types';
 import { onSessionExpired } from './api/authSession';
 import { hasPermission, permissions } from './auth/permissions';
@@ -76,7 +77,8 @@ onUnmounted(() => stopSessionExpiredListener?.());
     @refresh="refreshDashboard"
     @logout="signOut"
   >
-    <AdminUsersView v-if="activeView === 'users' && hasPermission(authUser, permissions.usersRead)" :current-user-id="authUser.id" />
+    <ProjectsView v-if="activeView === 'projects'" :current-user="authUser" />
+    <AdminUsersView v-else-if="activeView === 'users' && hasPermission(authUser, permissions.usersRead)" :current-user-id="authUser.id" />
     <AdminRolesView v-else-if="activeView === 'roles' && hasPermission(authUser, permissions.rolesRead)" :current-user="authUser" />
     <DashboardView v-else :refresh-key="dashboardRefreshKey" />
   </AppLayout>

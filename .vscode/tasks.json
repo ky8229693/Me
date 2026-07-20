@@ -54,7 +54,7 @@
     {
       "label": "client: dev",
       "type": "shell",
-      "command": "npm run dev -- --host 127.0.0.1",
+      "command": "npm run dev",
       "options": {
         "cwd": "${workspaceFolder}/src/WEB_Demo.Client"
       },

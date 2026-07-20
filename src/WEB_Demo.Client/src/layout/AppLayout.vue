@@ -20,7 +20,8 @@ const emit = defineEmits<{
 const isSidebarOpen = ref(false);
 const menuItems = computed<MenuItem[]>(() => {
   const items: MenuItem[] = [
-    { id: 'dashboard', label: 'Dashboard', icon: 'pi pi-home', active: props.activeView === 'dashboard' }
+    { id: 'dashboard', label: 'Dashboard', icon: 'pi pi-home', active: props.activeView === 'dashboard' },
+    { id: 'projects', label: 'Projects', icon: 'pi pi-briefcase', active: props.activeView === 'projects' }
   ];
   if (hasPermission(props.user, permissions.usersRead)) {
     items.push({ id: 'users', label: 'User Management', icon: 'pi pi-users', active: props.activeView === 'users' });

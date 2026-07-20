@@ -5,6 +5,7 @@ public enum AdministrationResultStatus
     Success,
     ValidationError,
     NotFound,
+    Forbidden,
     Conflict
 }
 
@@ -21,6 +22,9 @@ public sealed record AdministrationResult<T>(
 
     public static AdministrationResult<T> NotFound(string message) =>
         new(AdministrationResultStatus.NotFound, default, message);
+
+    public static AdministrationResult<T> Forbidden(string message) =>
+        new(AdministrationResultStatus.Forbidden, default, message);
 
     public static AdministrationResult<T> Conflict(string message) =>
         new(AdministrationResultStatus.Conflict, default, message);

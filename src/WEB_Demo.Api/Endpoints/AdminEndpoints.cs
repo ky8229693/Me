@@ -104,6 +104,8 @@ public static class AdminEndpoints
             Results.BadRequest(ApiResponse<T>.Fail(result.Message, ApiErrorCodes.ValidationError)),
         AdministrationResultStatus.NotFound =>
             Results.NotFound(ApiResponse<T>.Fail(result.Message, ApiErrorCodes.NotFound)),
+        AdministrationResultStatus.Forbidden =>
+            Results.Json(ApiResponse<T>.Fail(result.Message, ApiErrorCodes.Forbidden), statusCode: StatusCodes.Status403Forbidden),
         AdministrationResultStatus.Conflict =>
             Results.Json(
                 ApiResponse<T>.Fail(result.Message, ApiErrorCodes.Conflict),
