@@ -1,28 +1,26 @@
 <script setup lang="ts">
-import type { MenuItem } from './types';
+import { RouterLink, useRoute } from 'vue-router';
+import type { MenuGroup } from './types';
 
 defineProps<{
-  items: MenuItem[];
+  groups: MenuGroup[];
 }>();
 
 const emit = defineEmits<{
-  select: [id: MenuItem['id']];
+  select: [];
 }>();
+const route = useRoute();
 </script>
 
 <template>
   <nav>
-    <p class="menu-section">Home</p>
-    <button
-      v-for="item in items"
-      :key="item.label"
-      type="button"
-      class="menu-item"
-      :class="{ active: item.active }"
-      @click="emit('select', item.id)"
-    >
-      <i :class="item.icon" aria-hidden="true"></i>
-      <span>{{ item.label }}</span>
-    </button>
+    <section v-for="group in groups.filter(item => item.items.length)" :key="group.label">
+      <p class="menu-section">{{ group.label }}</p>
+      <RouterLink v-for="item in group.items" :key="item.routeName" class="menu-item"
+        :class="{ active: route.name === item.routeName || (item.routeName === 'projects' && String(route.name).startsWith('project-')) }"
+        :to="{ name: item.routeName }" @click="emit('select')">
+        <i :class="item.icon" aria-hidden="true"></i><span>{{ item.label }}</span>
+      </RouterLink>
+    </section>
   </nav>
 </template>

@@ -9,6 +9,7 @@ import * as authApi from './api/auth';
 import * as todoApi from './api/todos';
 import type { TodoItem } from './api/types';
 import { notifySessionExpired } from './api/authSession';
+import { createTestRouter } from './test/router';
 
 vi.mock('./api/auth', () => ({
   refreshSession: vi.fn(),
@@ -40,12 +41,14 @@ const deleteTodoMock = vi.mocked(todoApi.deleteTodo);
 
 const mountedWrappers: VueWrapper[] = [];
 
-function mountApp(): VueWrapper {
+async function mountApp(): Promise<VueWrapper> {
+  const router = await createTestRouter();
   const wrapper = mount(App, {
     global: {
       plugins: [
         [PrimeVue, { theme: { preset: Aura } }],
-        ToastService
+        ToastService,
+        router
       ]
     }
   });
@@ -94,7 +97,7 @@ describe('App', () => {
   it('loads todos when the dashboard is mounted', async () => {
     refreshSessionMock.mockResolvedValue(restoredSession({ id: '1', email: 'user@example.com', roles: ['User'] }));
 
-    mountApp();
+    await mountApp();
     await flushPromises();
 
     expect(getTodosMock).toHaveBeenCalledOnce();
@@ -102,20 +105,20 @@ describe('App', () => {
 
   it('shows user management navigation only for Admin users', async () => {
     refreshSessionMock.mockResolvedValue(restoredSession({ id: '1', email: 'admin@example.com', roles: ['User', 'Admin'] }));
-    const wrapper = mountApp();
+    const wrapper = await mountApp();
     await flushPromises();
 
     expect(wrapper.text()).toContain('User Management');
 
     refreshSessionMock.mockResolvedValue(restoredSession({ id: '2', email: 'user@example.com', roles: ['User'] }));
-    const userWrapper = mountApp();
+    const userWrapper = await mountApp();
     await flushPromises();
     expect(userWrapper.text()).not.toContain('User Management');
   });
 
   it('toggles the desktop sidebar from the navigation button', async () => {
     refreshSessionMock.mockResolvedValue(restoredSession({ id: '1', email: 'user@example.com', roles: ['User'] }));
-    const wrapper = mountApp();
+    const wrapper = await mountApp();
     await flushPromises();
 
     const layout = wrapper.find('.layout-wrapper');
@@ -133,7 +136,7 @@ describe('App', () => {
     refreshSessionMock.mockResolvedValue(restoredSession({ id: '1', email: 'user@example.com', roles: ['User'] }));
     createTodoMock.mockResolvedValue(createdTodo);
 
-    const wrapper = mountApp();
+    const wrapper = await mountApp();
     await flushPromises();
 
     await wrapper.find('input[placeholder="Add a todo item"]').setValue('New todo');
@@ -145,7 +148,7 @@ describe('App', () => {
   });
 
   it('shows validation feedback for short auth passwords', async () => {
-    const wrapper = mountApp();
+    const wrapper = await mountApp();
     await flushPromises();
 
     await wrapper.find('input[placeholder="name@example.com"]').setValue('user@example.com');
@@ -163,7 +166,7 @@ describe('App', () => {
     getTodosMock.mockResolvedValue([todo]);
     toggleTodoMock.mockResolvedValue({ ...todo, isDone: true });
 
-    const wrapper = mountApp();
+    const wrapper = await mountApp();
     await flushPromises();
 
     await wrapper.find('input[type="checkbox"]').setValue(true);
@@ -180,7 +183,7 @@ describe('App', () => {
 
   it('waits for backend logout and returns to the login view', async () => {
     refreshSessionMock.mockResolvedValue(restoredSession({ id: '1', email: 'user@example.com', roles: ['User'] }));
-    const wrapper = mountApp();
+    const wrapper = await mountApp();
     await flushPromises();
 
     const logoutButton = wrapper.findAll('button').find(button => button.text().includes('Logout'));
@@ -194,7 +197,7 @@ describe('App', () => {
 
   it('returns to the login view immediately when automatic refresh fails', async () => {
     refreshSessionMock.mockResolvedValue(restoredSession({ id: '1', email: 'user@example.com', roles: ['User'] }));
-    const wrapper = mountApp();
+    const wrapper = await mountApp();
     await flushPromises();
 
     notifySessionExpired();

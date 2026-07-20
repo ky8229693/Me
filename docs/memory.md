@@ -1,6 +1,6 @@
 # Project Memory
 
-最後更新：2026-07-20
+最後更新：2026-07-21
 
 本文件只記錄無法輕易從程式碼看出、跨 OpenSpec changes 仍有價值的專案脈絡。開發規範以 [`AGENTS.md`](../AGENTS.md) 為準；指令與環境設定請見 [`development.md`](development.md)，前端設計原則請見 [`ui-guidelines.md`](ui-guidelines.md)。目前 change 與歷史紀錄應使用 OpenSpec CLI 與 `openspec/changes/archive/` 查詢，不在此手動維護清單。
 
@@ -41,6 +41,10 @@
 - 導覽由資料模型產生並由 layout 集中管理 active state 與授權可見性。
 - 常見操作優先使用現有 PrimeVue components，視覺沿用 Aura theme 與既有 CSS variables，避免沒有需求的額外 UI dependencies。
 - 新增 UI 互動時補 unit tests；desktop 與 mobile 行為不同時，至少固定 state class、navigation event 與授權顯示條件。
+- Vue Router history mode 是前端導覽狀態的唯一來源；Project、Issue 與管理頁面必須具備可直接開啟及重新整理恢復的 URL。
+- 全站側欄依工作台、專案管理、系統管理分組；Project 內使用 Overview、Issues、Members、Settings contextual navigation。
+- Project 與 Issue 詳情是完整頁面，不使用 Dialog；Dialog 只用於短建立、確認或選擇，且不得形成 nested modal。
+- Issue list 的搜尋、篩選與分頁保存在 route query，以支援返回清單及分享目前視圖。
 
 ## PMS Issue Foundation
 

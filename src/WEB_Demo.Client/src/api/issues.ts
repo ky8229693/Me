@@ -19,6 +19,10 @@ export function createIssue(projectId: string, body: object) {
   return requestApi<IssueInfo>(root(projectId), { method: 'POST', body });
 }
 
+export function getIssue(projectId: string, issueId: string) {
+  return requestApi<IssueInfo>(`${root(projectId)}/${encodeURIComponent(issueId)}`);
+}
+
 export function updateIssue(projectId: string, issueId: string, body: object) {
   return requestApi<IssueInfo>(`${root(projectId)}/${encodeURIComponent(issueId)}`, { method: 'PUT', body });
 }

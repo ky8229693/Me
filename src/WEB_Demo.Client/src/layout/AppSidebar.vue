@@ -1,24 +1,22 @@
 <script setup lang="ts">
 import AppMenu from './AppMenu.vue';
-import type { MenuItem } from './types';
+import type { MenuGroup } from './types';
 
 defineProps<{
-  items: MenuItem[];
+  groups: MenuGroup[];
 }>();
 
 const emit = defineEmits<{
   close: [];
-  navigate: [id: MenuItem['id']];
 }>();
 
-function select(id: MenuItem['id']) {
-  emit('navigate', id);
+function select() {
   emit('close');
 }
 </script>
 
 <template>
   <aside class="layout-sidebar" aria-label="Main navigation">
-    <AppMenu :items="items" @select="select" />
+    <AppMenu :groups="groups" @select="select" />
   </aside>
 </template>

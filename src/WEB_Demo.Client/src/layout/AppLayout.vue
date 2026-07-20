@@ -3,33 +3,32 @@ import { computed, ref } from 'vue';
 import type { AuthUser } from '../api/types';
 import AppSidebar from './AppSidebar.vue';
 import AppTopbar from './AppTopbar.vue';
-import type { MenuItem } from './types';
+import type { MenuGroup } from './types';
 import { hasPermission, permissions } from '../auth/permissions';
 
 const props = defineProps<{
   user: AuthUser;
-  activeView: MenuItem['id'];
 }>();
 
 const emit = defineEmits<{
   logout: [];
   refresh: [];
-  navigate: [id: MenuItem['id']];
 }>();
 
 const isSidebarOpen = ref(false);
-const menuItems = computed<MenuItem[]>(() => {
-  const items: MenuItem[] = [
-    { id: 'dashboard', label: 'Dashboard', icon: 'pi pi-home', active: props.activeView === 'dashboard' },
-    { id: 'projects', label: 'Projects', icon: 'pi pi-briefcase', active: props.activeView === 'projects' }
-  ];
+const menuGroups = computed<MenuGroup[]>(() => {
+  const administration: MenuGroup['items'] = [];
   if (hasPermission(props.user, permissions.usersRead)) {
-    items.push({ id: 'users', label: 'User Management', icon: 'pi pi-users', active: props.activeView === 'users' });
+    administration.push({ routeName: 'users', label: 'User Management', icon: 'pi pi-users' });
   }
   if (hasPermission(props.user, permissions.rolesRead)) {
-    items.push({ id: 'roles', label: 'Role Management', icon: 'pi pi-shield', active: props.activeView === 'roles' });
+    administration.push({ routeName: 'roles', label: 'Role Management', icon: 'pi pi-shield' });
   }
-  return items;
+  return [
+    { label: 'Workbench', items: [{ routeName: 'dashboard', label: 'Dashboard', icon: 'pi pi-home' }] },
+    { label: 'Project Management', items: [{ routeName: 'projects', label: 'Projects', icon: 'pi pi-briefcase' }] },
+    { label: 'System Administration', items: administration }
+  ];
 });
 
 function toggleSidebar() {
@@ -56,7 +55,7 @@ function closeSidebar() {
       @logout="emit('logout')"
     />
 
-    <AppSidebar :items="menuItems" @close="closeSidebar" @navigate="emit('navigate', $event)" />
+    <AppSidebar :groups="menuGroups" @close="closeSidebar" />
 
     <button
       v-if="isSidebarOpen"

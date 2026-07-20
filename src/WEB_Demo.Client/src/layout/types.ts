@@ -1,6 +1,7 @@
 export type MenuItem = {
-  id: 'dashboard' | 'projects' | 'users' | 'roles';
+  routeName: 'dashboard' | 'projects' | 'users' | 'roles';
   label: string;
   icon: string;
-  active: boolean;
 };
+
+export type MenuGroup = { label: string; items: MenuItem[] };

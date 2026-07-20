@@ -5,6 +5,12 @@ import Aura from '@primeuix/themes/aura';
 import ProjectsView from './ProjectsView.vue';
 import * as projectApi from '../api/projects';
 
+const routerPush = vi.fn();
+vi.mock('vue-router', async importOriginal => ({
+  ...await importOriginal<typeof import('vue-router')>(),
+  useRouter: () => ({ push: routerPush })
+}));
+
 const toastAdd = vi.fn();
 vi.mock('primevue/usetoast', () => ({ useToast: () => ({ add: toastAdd }) }));
 vi.mock('../api/projects', async importOriginal => {
@@ -66,31 +72,29 @@ describe('ProjectsView', () => {
     expect(viewer.text()).not.toContain('Create project');
   });
 
-  it('opens an Owner project and loads its members', async () => {
+  it('opens a project as a routed workspace instead of a Dialog', async () => {
     const wrapper = mountView();
     await flushPromises();
     const open = wrapper.findAll('button').find(button => button.text().includes('Open'))!;
     await open.trigger('click');
     await flushPromises();
 
-    expect(projectApi.getProjectMembers).toHaveBeenCalledWith('project-1');
-    expect(wrapper.text()).toContain('Members');
-    expect(wrapper.text()).toContain('Archive');
+    expect(routerPush).toHaveBeenCalledWith({ name: 'project-overview', params: { projectId: 'project-1' } });
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false);
   });
 
-  it('presents archived projects as read-only with restore for Owner', async () => {
+  it('shows archived status in the list and still routes to the workspace', async () => {
     vi.mocked(projectApi.getProjects).mockResolvedValue([{ ...activeProject, status: 'Archived' }]);
     const wrapper = mountView();
     await flushPromises();
     await wrapper.findAll('button').find(button => button.text().includes('Open'))!.trigger('click');
     await flushPromises();
 
-    expect(wrapper.text()).toContain('read-only');
-    expect(wrapper.text()).toContain('Restore');
-    expect(wrapper.findAll('button').find(button => button.text().includes('Save project'))!.attributes('disabled')).toBeDefined();
+    expect(wrapper.text()).toContain('Archived');
+    expect(routerPush).toHaveBeenCalledWith({ name: 'project-overview', params: { projectId: 'project-1' } });
   });
 
-  it('shows role labels to Members instead of empty disabled selectors', async () => {
+  it('does not load members while rendering the project list', async () => {
     vi.mocked(projectApi.getProjects).mockResolvedValue([{
       ...activeProject, currentUserRole: 'Member'
     }]);
@@ -100,11 +104,7 @@ describe('ProjectsView', () => {
     ]);
     const wrapper = mountView([]);
     await flushPromises();
-    await wrapper.findAll('button').find(button => button.text().includes('Open'))!.trigger('click');
-    await flushPromises();
-
-    expect(wrapper.get('[data-testid="project-role-owner"]').text()).toContain('Owner');
-    expect(wrapper.get('[data-testid="project-role-manager"]').text()).toContain('Manager');
-    expect(wrapper.findAll('[aria-label^="Project role "]')).toHaveLength(0);
+    expect(projectApi.getProjectMembers).not.toHaveBeenCalled();
+    expect(wrapper.text()).toContain('Member');
   });
 });

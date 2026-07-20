@@ -154,6 +154,19 @@ npm run build
 ```powershell
 npm run spec:validate
 ```
+
+## Frontend Routes and SPA Hosting
+
+The Vue client uses history-mode routing. Main routes include `/dashboard`, `/projects`,
+`/projects/:projectId/*`, `/admin/users`, and `/admin/roles`.
+
+Vite development mode provides history fallback automatically. A production web host must:
+
+- forward `/api/*` requests to the ASP.NET Core API;
+- serve static client assets normally;
+- return the client `index.html` for every other unmatched application route.
+
+Without this fallback, directly opening or refreshing a nested Project or Issue URL returns a web-server 404 before Vue Router can resolve it.
 # Permission-based RBAC
 
 Permission definitions are code-owned in `Authorization/AppPermissions.cs`; do not create permission keys directly in the database or UI. Current endpoint mapping:

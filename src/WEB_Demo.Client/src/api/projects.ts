@@ -7,6 +7,10 @@ export function getProjects(): Promise<ProjectInfo[] | null> {
   return requestApi<ProjectInfo[]>('/api/projects');
 }
 
+export function getProject(projectId: string): Promise<ProjectInfo | null> {
+  return requestApi<ProjectInfo>(`/api/projects/${encodeURIComponent(projectId)}`);
+}
+
 export function createProject(name: string, description: string | null): Promise<ProjectInfo | null> {
   return requestApi<ProjectInfo>('/api/projects', { method: 'POST', body: { name, description } });
 }
