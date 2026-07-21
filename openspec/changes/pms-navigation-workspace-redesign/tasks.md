@@ -55,12 +55,12 @@
 ## 7. 自動化測試
 
 - [x] 7.1 建立 memory-history router test helper 與 authenticated route mounting utilities
-- [ ] 7.2 新增 sidebar 分組、empty group、permission visibility 與 active route tests
-- [ ] 7.3 新增 session restore、login redirect、logout 與 unauthorized administration route tests
-- [ ] 7.4 新增 Project list navigation、workspace child routes、membership Not Found 與 Archived state tests
-- [ ] 7.5 新增 Issue filter/query synchronization、pagination與返回清單狀態 tests
-- [ ] 7.6 新增 Issue deep-link、detail actions、comments/history及 Not Found tests
-- [ ] 7.7 新增 modal boundary test，確認 Project／Issue detail 不以 Dialog 渲染且無 nested modal
+- [x] 7.2 新增 sidebar 分組、empty group、permission visibility 與 active route tests
+- [x] 7.3 新增 session restore、login redirect、logout 與 unauthorized administration route tests
+- [x] 7.4 新增 Project list navigation、workspace child routes、membership Not Found 與 Archived state tests
+- [x] 7.5 新增 Issue filter/query synchronization、pagination與返回清單狀態 tests
+- [x] 7.6 新增 Issue deep-link、detail actions、comments/history及 Not Found tests
+- [x] 7.7 新增 modal boundary test，確認 Project／Issue detail 不以 Dialog 渲染且無 nested modal
 
 ## 8. 驗證與文件
 

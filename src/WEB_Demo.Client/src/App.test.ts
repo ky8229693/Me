@@ -41,8 +41,8 @@ const deleteTodoMock = vi.mocked(todoApi.deleteTodo);
 
 const mountedWrappers: VueWrapper[] = [];
 
-async function mountApp(): Promise<VueWrapper> {
-  const router = await createTestRouter();
+async function mountApp(initialPath = '/dashboard'): Promise<VueWrapper> {
+  const router = await createTestRouter(initialPath);
   const wrapper = mount(App, {
     global: {
       plugins: [
@@ -78,6 +78,11 @@ describe('App', () => {
         disconnect() {}
       }
     );
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn()
+    }));
 
     getTodosMock.mockResolvedValue([]);
     refreshSessionMock.mockResolvedValue(null);
@@ -109,11 +114,39 @@ describe('App', () => {
     await flushPromises();
 
     expect(wrapper.text()).toContain('User Management');
+    expect(wrapper.text()).toContain('Workbench');
+    expect(wrapper.text()).toContain('Project Management');
+    expect(wrapper.text()).toContain('System Administration');
+    expect(wrapper.text()).toContain('Role Management');
 
     refreshSessionMock.mockResolvedValue(restoredSession({ id: '2', email: 'user@example.com', roles: ['User'] }));
     const userWrapper = await mountApp();
     await flushPromises();
     expect(userWrapper.text()).not.toContain('User Management');
+    expect(userWrapper.text()).not.toContain('System Administration');
+  });
+
+  it('restores the requested route after session restoration', async () => {
+    refreshSessionMock.mockResolvedValue(restoredSession({ id: '1', email: 'admin@example.com', roles: ['Admin'] }));
+    const wrapper = await mountApp('/admin/users');
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('User Management');
+  });
+
+  it('keeps the requested route through login and blocks unauthorized administration content', async () => {
+    const wrapper = await mountApp('/admin/users');
+    await flushPromises();
+    expect(wrapper.find('input[placeholder="name@example.com"]').exists()).toBe(true);
+
+    loginMock.mockResolvedValue(restoredSession({ id: '2', email: 'user@example.com', roles: ['User'] }));
+    await wrapper.find('input[placeholder="name@example.com"]').setValue('user@example.com');
+    await wrapper.find('input[placeholder="Password"]').setValue('password');
+    await wrapper.find('.auth-form').trigger('submit');
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('Access denied');
+    expect(wrapper.text()).not.toContain('Manage user access');
   });
 
   it('toggles the desktop sidebar from the navigation button', async () => {
