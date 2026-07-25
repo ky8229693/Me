@@ -1,6 +1,7 @@
 # .NET
 bin/
 obj/
+artifacts/
 *.user
 *.suo
 .vs/
@@ -22,6 +23,12 @@ npm-debug.log*
 .env
 .env.*
 !.env.example
+
+# Local production deployment
+certs/*
+!certs/.gitkeep
+backups/*
+!backups/.gitkeep
 
 # Local tooling
 .codex/
