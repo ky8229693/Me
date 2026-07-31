@@ -4,7 +4,7 @@
     "spec:doctor": "openspec doctor",
     "spec:list": "openspec list",
     "spec:list-specs": "openspec list --specs",
-    "spec:validate": "openspec validate",
+    "spec:validate": "openspec validate --all",
     "spec:view": "openspec view"
   },
   "devDependencies": {

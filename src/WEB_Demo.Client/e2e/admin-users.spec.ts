@@ -9,7 +9,7 @@ test('Admin 可以搜尋、停用、啟用並提升測試帳號', async ({ page 
   await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
   await loginThroughUi(page, e2eAdmin.email, e2eAdmin.password);
 
-  await page.getByRole('button', { name: 'User Management' }).click();
+  await page.getByRole('link', { name: 'User Management' }).click();
   await expect(page.getByRole('heading', { name: 'User Management' })).toBeVisible();
   await page.getByLabel('Search by email').fill(target.email);
   await page.getByRole('button', { name: 'Search', exact: true }).click();
@@ -36,7 +36,7 @@ test('一般使用者看不到管理入口且管理 API 回傳 403', async ({ pa
   const data = createE2ETestData();
   await registerThroughUi(page, data);
 
-  await expect(page.getByRole('button', { name: 'User Management' })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'User Management' })).toHaveCount(0);
   const token = await page.evaluate(async () => {
     const response = await fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' });
     return (await response.json()).data.accessToken as string;

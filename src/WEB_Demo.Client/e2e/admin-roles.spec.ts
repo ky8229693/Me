@@ -12,7 +12,7 @@ test('Admin 可以建立、指派、改名並刪除自訂 role', async ({ page }
   await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
   await loginThroughUi(page, e2eAdmin.email, e2eAdmin.password);
 
-  await page.getByRole('button', { name: 'Role Management' }).click();
+  await page.getByRole('link', { name: 'Role Management' }).click();
   await page.getByLabel('New role name').fill(roleName);
   await page.getByRole('button', { name: 'Create role' }).click();
   const roleRow = page.getByRole('row').filter({ has: page.getByLabel(`Role name ${roleName}`) });
@@ -21,7 +21,7 @@ test('Admin 可以建立、指派、改名並刪除自訂 role', async ({ page }
   await page.getByText('View roles', { exact: true }).click();
   await page.getByRole('button', { name: 'Save permissions' }).click();
 
-  await page.getByRole('button', { name: 'User Management' }).click();
+  await page.getByRole('link', { name: 'User Management' }).click();
   await page.getByLabel('Search by email').fill(target.email);
   await page.getByRole('button', { name: 'Search', exact: true }).click();
   const userRow = page.getByRole('row').filter({ hasText: target.email });
@@ -32,17 +32,17 @@ test('Admin 可以建立、指派、改名並刪除自訂 role', async ({ page }
 
   await page.getByRole('button', { name: 'Logout' }).click();
   await loginThroughUi(page, target.email, target.password);
-  await expect(page.getByRole('button', { name: 'Role Management' })).toBeVisible();
-  await page.getByRole('button', { name: 'Role Management' }).click();
+  await expect(page.getByRole('link', { name: 'Role Management' })).toBeVisible();
+  await page.getByRole('link', { name: 'Role Management' }).click();
   await expect(page.getByRole('button', { name: 'Create role' })).toBeDisabled();
   await page.getByRole('button', { name: 'Logout' }).click();
   await loginThroughUi(page, e2eAdmin.email, e2eAdmin.password);
 
-  await page.getByRole('button', { name: 'Role Management' }).click();
+  await page.getByRole('link', { name: 'Role Management' }).click();
   await expect(page.getByRole('row').filter({ has: page.getByLabel(`Role name ${roleName}`) })
     .getByRole('button', { name: 'Delete' })).toBeDisabled();
 
-  await page.getByRole('button', { name: 'User Management' }).click();
+  await page.getByRole('link', { name: 'User Management' }).click();
   await page.getByLabel('Search by email').fill(target.email);
   await page.getByRole('button', { name: 'Search', exact: true }).click();
   const updatedUserRow = page.getByRole('row').filter({ hasText: target.email });
@@ -51,7 +51,7 @@ test('Admin 可以建立、指派、改名並刪除自訂 role', async ({ page }
   await page.keyboard.press('Escape');
   await updatedUserRow.getByRole('button', { name: 'Save roles' }).click();
 
-  await page.getByRole('button', { name: 'Role Management' }).click();
+  await page.getByRole('link', { name: 'Role Management' }).click();
   const finalRow = page.getByRole('row').filter({ has: page.getByLabel(`Role name ${roleName}`) });
   await finalRow.getByLabel(`Role name ${roleName}`).fill(renamedRole);
   await finalRow.getByRole('button', { name: 'Rename' }).click();
@@ -63,7 +63,7 @@ test('Admin 可以建立、指派、改名並刪除自訂 role', async ({ page }
 
 test('一般 User 看不到 Role Management 且 Role API 回傳 403', async ({ page }) => {
   await registerThroughUi(page, createE2ETestData());
-  await expect(page.getByRole('button', { name: 'Role Management' })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Role Management' })).toHaveCount(0);
   const token = await page.evaluate(async () => {
     const response = await fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' });
     return (await response.json()).data.accessToken as string;

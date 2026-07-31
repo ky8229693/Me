@@ -13,6 +13,9 @@ Local development 使用 HTTP only。
 
 若要在本機練習 Production build、HTTPS gateway、容器化 PostgreSQL、備份與還原，請見 [`local-production-deployment.md`](local-production-deployment.md)。該流程與本節的日常 HTTP development workflow 相互獨立。
 
+GitHub Actions jobs、本機等價指令、失敗診斷與 required checks 請見
+[`continuous-integration.md`](continuous-integration.md)。
+
 認證預設使用 15 分鐘 access token 與 7 天固定到期 refresh token。Development 的 refresh cookie 因 HTTP only 不設 `Secure`；Production 一律設為 `Secure`，因此正式環境必須由 HTTPS 提供服務。Cookie 為 `HttpOnly`、`SameSite=Strict`，且 path 限制為 `/api/auth`。
 
 ## Backend
