@@ -1,6 +1,6 @@
 ## 1. Workflow Foundation
 
-- [x] 1.1 新增 GitHub Actions CI workflow，設定 pull request／`master` push triggers、read-only permissions、concurrency cancellation 與 job timeouts
+- [x] 1.1 新增 GitHub Actions CI workflow，設定 pull request／`main` push triggers、read-only permissions、concurrency cancellation 與 job timeouts
 - [x] 1.2 將使用的 GitHub Actions pin 至受信任 release 的 immutable commit SHA，並保留可讀版本註解
 
 ## 2. Fast Verification Jobs

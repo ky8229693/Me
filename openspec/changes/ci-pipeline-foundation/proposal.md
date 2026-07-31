@@ -1,10 +1,10 @@
 ## Why
 
-專案目前的 build、tests、OpenSpec 與 container 驗證都依賴開發者手動執行，容易在合併後才發現問題。建立最小 GitHub Actions CI foundation，可讓 pull request 與 `master` push 具備一致、可追蹤的品質檢查，同時為未來 CD 保留清楚邊界。
+專案目前的 build、tests、OpenSpec 與 container 驗證都依賴開發者手動執行，容易在合併後才發現問題。建立最小 GitHub Actions CI foundation，可讓 pull request 與 `main` push 具備一致、可追蹤的品質檢查，同時為未來 CD 保留清楚邊界。
 
 ## What Changes
 
-- 新增 GitHub Actions CI workflow，在 pull request 與 `master` push 自動執行。
+- 新增 GitHub Actions CI workflow，在 pull request 與 `main` push 自動執行。
 - 驗證 ASP.NET Core restore、Release build 與 backend tests。
 - 驗證 frontend clean install、unit tests 與 production build。
 - 驗證所有 OpenSpec specs 與 active changes。

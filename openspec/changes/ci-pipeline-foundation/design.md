@@ -6,7 +6,7 @@
 
 **Goals:**
 
-- 對 pull request 與 `master` push 提供一致且可重現的必要檢查。
+- 對 pull request 與 `main` push 提供一致且可重現的必要檢查。
 - 將快速 backend、frontend 與 OpenSpec checks 和較慢的 E2E、container checks 分離，讓失敗容易定位。
 - 以現有專案指令作為 CI 與本機驗證的共同來源。
 - 使用最小 GitHub token permissions、immutable action references、timeouts 與 concurrency cancellation。

@@ -1,7 +1,7 @@
 # Continuous Integration
 
 GitHub Actions workflow 位於 [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)，會在以
-`master` 為目標的 pull request，以及 push 至 `master` 時執行。相同 pull request 的新執行會取消舊執行。
+`main` 為目標的 pull request，以及 push 至 `main` 時執行。相同 pull request 的新執行會取消舊執行。
 
 ## Jobs and local equivalents
 

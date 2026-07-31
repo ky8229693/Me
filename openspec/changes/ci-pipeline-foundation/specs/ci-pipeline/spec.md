@@ -1,14 +1,14 @@
 ## ADDED Requirements
 
 ### Requirement: CI runs for proposed and integrated changes
-The repository SHALL run its CI pipeline for pull requests targeting `master` and pushes to `master`. A newer run for the same pull request SHALL cancel an obsolete in-progress run.
+The repository SHALL run its CI pipeline for pull requests targeting `main` and pushes to `main`. A newer run for the same pull request SHALL cancel an obsolete in-progress run.
 
 #### Scenario: Contributor updates a pull request
-- **WHEN** a contributor pushes a new commit to an open pull request targeting `master`
+- **WHEN** a contributor pushes a new commit to an open pull request targeting `main`
 - **THEN** CI starts for the new commit and cancels an older in-progress run for that pull request
 
 #### Scenario: Change is merged
-- **WHEN** a commit is pushed to `master`
+- **WHEN** a commit is pushed to `main`
 - **THEN** CI verifies the exact integrated commit
 
 ### Requirement: CI validates backend and frontend builds and tests
