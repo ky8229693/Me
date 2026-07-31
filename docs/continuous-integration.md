@@ -7,7 +7,7 @@ GitHub Actions workflow 位於 [`.github/workflows/ci.yml`](../.github/workflows
 
 | Check name | Purpose | Local equivalent |
 | --- | --- | --- |
-| `Backend` | locked NuGet restore、Release API build、完整 .NET tests | `dotnet restore WEB_Demo.sln --locked-mode`; `dotnet build src/WEB_Demo.Api/WEB_Demo.Api.csproj -c Release --no-restore`; `dotnet test WEB_Demo.sln -c Release --no-restore` |
+| `Backend` | 以一次性 PostgreSQL 16 service 執行 locked NuGet restore、Release API build、完整 .NET tests | 啟動可拋棄的 PostgreSQL，設定 `ConnectionStrings__DefaultConnection`，再執行 `dotnet restore WEB_Demo.sln --locked-mode`; `dotnet build src/WEB_Demo.Api/WEB_Demo.Api.csproj -c Release --no-restore`; `dotnet test WEB_Demo.sln -c Release --no-restore` |
 | `Frontend` | clean npm install、unit tests、production build | 在 `src/WEB_Demo.Client` 執行 `npm ci`; `npm run test:unit`; `npm run build` |
 | `OpenSpec` | 驗證 main specs 與 active changes | repository root 執行 `npm ci`; `npm run spec:validate` |
 | `E2E` | 以一次性 PostgreSQL 16 service 執行 Chromium workflows | 設定安全的 `E2E_POSTGRES_CONNECTION`，再於 Client 執行 `npm ci`; `npx playwright install chromium`; `npm run test:e2e` |
@@ -18,8 +18,9 @@ Container 本機必要條件與環境變數請見 [local production deployment](
 
 ## Failure diagnosis
 
-- `Backend`：查看 restore、compiler 或 xUnit failure；lock file 不一致時，以預期套件版本重新執行
-  `dotnet restore WEB_Demo.sln --use-lock-file` 並 review lock file diff。
+- `Backend`：查看 PostgreSQL health、restore、compiler 或 xUnit failure；integration tests 只能連線到一次性
+  CI／本機測試 database。lock file 不一致時，以預期套件版本重新執行 `dotnet restore WEB_Demo.sln --use-lock-file`
+  並 review lock file diff。
 - `Frontend`：從 Vitest failure、Vue TypeScript error 或 Vite build error 對應處理；CI 固定使用 `npm ci`，
   因此 dependency 變更必須一併提交 `package-lock.json`。
 - `OpenSpec`：輸出會指出無效的 change、requirement 或 scenario；修正 artifact 後重新執行全量 validation。

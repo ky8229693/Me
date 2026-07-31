@@ -12,7 +12,11 @@ The repository SHALL run its CI pipeline for pull requests targeting `main` and 
 - **THEN** CI verifies the exact integrated commit
 
 ### Requirement: CI validates backend and frontend builds and tests
-The CI pipeline SHALL restore locked dependencies, build the ASP.NET Core API in Release configuration, run all backend tests, install frontend dependencies with `npm ci`, run frontend unit tests, and produce the frontend production build.
+The CI pipeline SHALL restore locked dependencies, build the ASP.NET Core API in Release configuration, run all backend tests against an ephemeral PostgreSQL service, install frontend dependencies with `npm ci`, run frontend unit tests, and produce the frontend production build.
+
+#### Scenario: Backend integration tests start
+- **WHEN** backend tests start the API and apply database migrations
+- **THEN** they use a CI-only PostgreSQL service and do not connect to a development or production database
 
 #### Scenario: Backend test fails
 - **WHEN** any backend test returns a failing exit code

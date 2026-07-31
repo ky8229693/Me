@@ -33,6 +33,8 @@ Ubuntu runner具備 Docker tooling，且容易建立 PostgreSQL service。它不
 
 Workflow 啟動一次性 PostgreSQL service，將 maintenance connection 透過 job-level environment 傳給現有 E2E runner。Password 只用於該 ephemeral job，不使用 repository secret。Playwright Chromium 與系統相依套件由官方 CLI 安裝，失敗時上傳 report、trace、screenshots 與 videos。
 
+Backend integration tests 會啟動 API 並套用 migrations，因此 Backend job 也使用自身的一次性 PostgreSQL service 與 CI-only connection string。Backend 與 E2E services 分屬不同 jobs，不共享資料或 credentials。
+
 ### Container job只驗證、不發佈
 
 Container job設定非敏感 placeholder environment，執行 `docker compose config` 並 build API 與 Client images。它不啟動需要 localhost certificate 的完整 Compose stack，也不登入 registry。Runtime smoke test留在 `local-production-deployment`，避免 CI 管理自簽 private key。
