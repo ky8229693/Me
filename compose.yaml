@@ -1,0 +1,78 @@
+name: web-demo-local-production
+
+services:
+  database:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-web_demo_local_prod}
+      POSTGRES_USER: ${POSTGRES_USER:-web_demo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backups:/backups
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  api:
+    build:
+      context: .
+      dockerfile: src/WEB_Demo.Api/Dockerfile
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      AllowedHosts: localhost
+      ConnectionStrings__DefaultConnection: Host=database;Port=5432;Database=${POSTGRES_DB:-web_demo_local_prod};Username=${POSTGRES_USER:-web_demo};Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      Cors__AllowedOrigins__0: https://localhost
+      Jwt__Issuer: WEB_Demo.Api
+      Jwt__Audience: WEB_Demo.Client
+      Jwt__SigningKey: ${JWT_SIGNING_KEY:?Set JWT_SIGNING_KEY in .env}
+    depends_on:
+      database:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - --fail
+        - --silent
+        - http://localhost:8080/api/health
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  gateway:
+    build:
+      context: .
+      dockerfile: src/WEB_Demo.Client/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "443:443"
+    volumes:
+      - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - --quiet
+        - --output-document=/dev/null
+        - --no-check-certificate
+        - https://localhost/api/health
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+volumes:
+  postgres_data:

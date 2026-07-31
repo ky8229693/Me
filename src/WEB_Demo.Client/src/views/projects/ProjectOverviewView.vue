@@ -1,0 +1,8 @@
+<script setup lang="ts">
+import { inject } from 'vue';
+import { RouterLink } from 'vue-router';
+import { projectWorkspaceKey } from '../../features/projects/projectContext';
+const context = inject(projectWorkspaceKey)!;
+</script>
+<template><section class="workspace-panel"><h2>Overview</h2><div class="overview-grid"><article><span>Status</span><strong>{{ context.project.value.status }}</strong></article><article><span>Your role</span><strong>{{ context.project.value.currentUserRole }}</strong></article><article><span>Members</span><strong>{{ context.members.value.length }}</strong></article></div><div class="quick-links"><RouterLink :to="{ name: 'project-issues' }"><i class="pi pi-list-check"></i><span><strong>Issues</strong><small>Track features, bugs and changes</small></span></RouterLink><RouterLink :to="{ name: 'project-members' }"><i class="pi pi-users"></i><span><strong>Members</strong><small>Review project access and roles</small></span></RouterLink></div></section></template>
+<style scoped>.overview-grid,.quick-links{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem}.overview-grid article,.quick-links a{padding:1rem;border:1px solid var(--p-content-border-color);border-radius:var(--p-border-radius);display:grid;gap:.3rem}.overview-grid span,small{color:var(--p-text-muted-color)}.quick-links{grid-template-columns:repeat(2,minmax(0,1fr));margin-top:1rem}.quick-links a{grid-template-columns:auto 1fr;text-decoration:none;color:inherit}.quick-links i{color:var(--p-primary-color);font-size:1.4rem}@media(max-width:650px){.overview-grid,.quick-links{grid-template-columns:1fr}}</style>

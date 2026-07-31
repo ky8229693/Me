@@ -1,0 +1,90 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "api: build",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/src/WEB_Demo.Api/WEB_Demo.Api.csproj"
+      ],
+      "problemMatcher": "$msCompile",
+      "group": "build"
+    },
+    {
+      "label": "api: run",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "run",
+        "--project",
+        "${workspaceFolder}/src/WEB_Demo.Api/WEB_Demo.Api.csproj",
+        "--urls",
+        "http://localhost:5186"
+      ],
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "dotnet",
+        "pattern": {
+          "regexp": "^$"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".*",
+          "endsPattern": "Now listening on:|正在接聽"
+        }
+      }
+    },
+    {
+      "label": "api: stop",
+      "type": "shell",
+      "command": "$currentPid = $PID; Get-CimInstance Win32_Process | Where-Object { $_.ProcessId -ne $currentPid -and ($_.CommandLine -like '*WEB_Demo.Api.dll*' -or $_.CommandLine -like '*WEB_Demo.Api.exe*') } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }",
+      "problemMatcher": []
+    },
+    {
+      "label": "client: install",
+      "type": "shell",
+      "command": "npm install",
+      "options": {
+        "cwd": "${workspaceFolder}/src/WEB_Demo.Client"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "client: dev",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/src/WEB_Demo.Client"
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "vite",
+        "pattern": {
+          "regexp": "^$"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".*",
+          "endsPattern": "Local:"
+        }
+      }
+    },
+    {
+      "label": "client: stop",
+      "type": "shell",
+      "command": "$currentPid = $PID; Get-CimInstance Win32_Process | Where-Object { $_.ProcessId -ne $currentPid -and $_.CommandLine -like '*WEB_Demo.Client*' -and ($_.CommandLine -like '*vite*' -or $_.CommandLine -like '*npm*') } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }",
+      "problemMatcher": []
+    },
+    {
+      "label": "client: build",
+      "type": "shell",
+      "command": "npm run build",
+      "options": {
+        "cwd": "${workspaceFolder}/src/WEB_Demo.Client"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

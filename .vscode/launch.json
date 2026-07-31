@@ -1,0 +1,43 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "1. API",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "api: build",
+      "program": "${workspaceFolder}/src/WEB_Demo.Api/bin/Debug/net8.0/WEB_Demo.Api.dll",
+      "args": [
+        "--urls",
+        "http://localhost:5186"
+      ],
+      "cwd": "${workspaceFolder}/src/WEB_Demo.Api",
+      "stopAtEntry": false,
+      "postDebugTask": "api: stop",
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "sourceFileMap": {
+        "/Views": "${workspaceFolder}/Views"
+      }
+    },
+    {
+      "name": "2. WEB",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm run dev",
+      "cwd": "${workspaceFolder}/src/WEB_Demo.Client",
+      "postDebugTask": "client: stop"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "3. API + WEB",
+      "configurations": [
+        "1. API",
+        "2. WEB"
+      ],
+      "stopAll": true
+    }
+  ]
+}

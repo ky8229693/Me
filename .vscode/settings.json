@@ -1,0 +1,10 @@
+{
+  "files.encoding": "utf8",
+  "files.autoGuessEncoding": true,
+  "terminal.integrated.defaultProfile.windows": "PowerShell 7",
+  "terminal.integrated.profiles.windows": {
+    "PowerShell 7": {
+      "source": "PowerShell"
+    }
+  }
+}

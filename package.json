@@ -1,0 +1,16 @@
+{
+  "private": true,
+  "scripts": {
+    "spec:doctor": "openspec doctor",
+    "spec:list": "openspec list",
+    "spec:list-specs": "openspec list --specs",
+    "spec:validate": "openspec validate --all",
+    "spec:view": "openspec view"
+  },
+  "devDependencies": {
+    "@fission-ai/openspec": "^1.5.0"
+  },
+  "dependencies": {
+    "primeicons": "^7.0.0"
+  }
+}

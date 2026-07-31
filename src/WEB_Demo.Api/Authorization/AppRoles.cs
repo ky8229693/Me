@@ -1,0 +1,12 @@
+namespace WEB_Demo.Api.Authorization;
+
+public static class AppRoles
+{
+    public const string Admin = "Admin";
+    public const string User = "User";
+
+    public static readonly string[] All = [Admin, User];
+
+    public static bool IsSystemRole(string? roleName) =>
+        All.Contains(roleName?.Trim(), StringComparer.OrdinalIgnoreCase);
+}
