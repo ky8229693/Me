@@ -24,4 +24,4 @@
 
 - [x] 5.1 文件化 CI jobs、check names、本機對應指令、失敗診斷與 CD 排除範圍
 - [x] 5.2 執行本機等價命令與 workflow static validation
-- [ ] 5.3 在 GitHub pull request觀察完整 workflow通過，並記錄需由管理員另行設定的 required checks
+- [x] 5.3 在 GitHub pull request觀察完整 workflow通過，並記錄需由管理員另行設定的 required checks
