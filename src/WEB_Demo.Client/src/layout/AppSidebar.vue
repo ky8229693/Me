@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import AppMenu from './AppMenu.vue';
 import type { MenuGroup } from './types';
+import { useI18n } from 'vue-i18n';
+const { t } = useI18n();
 
 defineProps<{
   groups: MenuGroup[];
@@ -16,7 +18,7 @@ function select() {
 </script>
 
 <template>
-  <aside class="layout-sidebar" aria-label="Main navigation">
+  <aside class="layout-sidebar" :aria-label="t('layout.mainNavigation')">
     <AppMenu :groups="groups" @select="select" />
   </aside>
 </template>

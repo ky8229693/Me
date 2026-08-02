@@ -10,11 +10,11 @@
 - API payload 使用共用 `ApiResponse<T>` envelope，同時保留正確 HTTP status code。
 - `Program.cs` 聚焦 service registration、middleware、Swagger、CORS 與 endpoint wiring；feature routes、logic 與 cross-cutting concerns 分開放置。
 - Swagger 端點以功能標籤分類；新增 API 時必須沿用對應 feature tag，管理功能可再細分 Users、Roles 等子領域。
-- 後端功能持續增加時，Endpoints、Contracts/Models 與 Services 應改以 feature 為主要分類（例如 Auth、Administration、Todos），避免不同功能長期集中在共用資料夾；既有程式採漸進式搬移，不為分類而一次大改。
+- 後端功能持續增加時，Endpoints、Contracts/Models 與 Services 應改以 feature 為主要分類（例如 Auth、Administration、Issues），避免不同功能長期集中在共用資料夾；既有程式採漸進式搬移，不為分類而一次大改。
 - PostgreSQL 是預設持久化資料庫；schema 透過 EF Core migrations 管理。
 - 認證使用 ASP.NET Core Identity 與 JWT，不建立自行維護的密碼資料表。
 - Local development 維持 HTTP only，不主動導入 HTTPS。
-- Todo 目前仍由 `InMemoryTodoService` 保存；持久化與使用者 ownership 應由後續獨立 change 處理。
+- Todo 示範功能已由 PMS Dashboard、Issue Kanban 與 Project labels 取代，不再提供 `/api/todos`。
 
 ## 認證與管理安全決策
 
@@ -58,7 +58,7 @@
 
 ## 當前技術限制
 
-- Todo 尚未持久化，也尚未與登入使用者建立 ownership。
+- Dashboard read model 只彙整目前使用者具有 membership 的 active Projects；System Admin 不具跨 Project bypass。
 - 授權已有自訂 role CRUD，但尚無 Permission model、role-permission mapping、user-specific permissions 或 resource-based authorization。
 - Access token 只保存在前端 module memory，不寫入 localStorage；啟動時會清除舊 `web_demo.auth_token` key，並以 refresh cookie 恢復登入。
 - Shared HTTP client 對可重試的 401 使用單一 JavaScript runtime 內的 single-flight refresh，成功後原 request 最多重試一次；多分頁／多 tab 協調與跨 instance distributed session registry 尚未實作。
@@ -68,7 +68,7 @@
 
 ## 後續方向
 
-- Todo PostgreSQL persistence、migration 與 ownership。
+- Issue 通知、附件、子任務與報表。
 - 正式 structured logging。
 - Permission model 與 resource-based authorization。
 - 登入失敗 lockout 與人工停用狀態分離。

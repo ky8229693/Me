@@ -30,7 +30,7 @@ describe('requestApi', () => {
   });
 
   it('returns typed data from a successful API envelope', async () => {
-    const todo = { id: 1, title: 'Write tests', isDone: false };
+    const project = { id: 'project-1', name: 'PMS' };
     const fetchMock = vi.fn().mockResolvedValue(
       mockApiResponse({
         ok: true,
@@ -38,14 +38,14 @@ describe('requestApi', () => {
         body: {
           success: true,
           message: null,
-          data: todo,
+          data: project,
           errorCode: null
         }
       })
     );
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(requestApi<typeof todo>('/api/todos/1')).resolves.toEqual(todo);
+    await expect(requestApi<typeof project>('/api/projects/project-1')).resolves.toEqual(project);
   });
 
   it('throws an API error with the backend message for failed HTTP responses', async () => {
@@ -63,7 +63,7 @@ describe('requestApi', () => {
     );
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(requestApi('/api/todos')).rejects.toMatchObject({
+    await expect(requestApi('/api/projects')).rejects.toMatchObject({
       message: 'Server failed.',
       status: 500,
       errorCode: 'internal-server-error'
@@ -77,18 +77,18 @@ describe('requestApi', () => {
         status: 200,
         body: {
           success: false,
-          message: 'Todo was not found.',
+          message: 'Project was not found.',
           data: null,
-          errorCode: 'todo-not-found'
+          errorCode: 'not-found'
         }
       })
     );
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(requestApi('/api/todos/999')).rejects.toMatchObject({
-      message: 'Todo was not found.',
+    await expect(requestApi('/api/projects/hidden')).rejects.toMatchObject({
+      message: 'Project was not found.',
       status: 200,
-      errorCode: 'todo-not-found'
+      errorCode: 'not-found'
     });
   });
 
@@ -144,20 +144,20 @@ describe('requestApi', () => {
         body: {
           success: true,
           message: null,
-          data: { id: 2, title: 'Created todo', isDone: false },
+          data: { id: 'project-2', name: 'Created project' },
           errorCode: null
         }
       })
     );
     vi.stubGlobal('fetch', fetchMock);
 
-    await requestApi('/api/todos', {
+    await requestApi('/api/projects', {
       method: 'POST',
-      body: { title: 'Created todo' }
+      body: { name: 'Created project' }
     });
 
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(init.body).toBe(JSON.stringify({ title: 'Created todo' }));
+    expect(init.body).toBe(JSON.stringify({ name: 'Created project' }));
     expect(init.headers).toBeInstanceOf(Headers);
     expect((init.headers as Headers).get('Content-Type')).toBe('application/json');
   });
@@ -221,13 +221,13 @@ describe('requestApi', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     await Promise.all([
-      requestApi('/api/todos'),
-      requestApi('/api/todos'),
-      requestApi('/api/todos')
+      requestApi('/api/projects'),
+      requestApi('/api/projects'),
+      requestApi('/api/projects')
     ]);
 
     expect(fetchMock.mock.calls.filter(([path]) => path === '/api/auth/refresh')).toHaveLength(1);
-    expect(fetchMock.mock.calls.filter(([path]) => path === '/api/todos')).toHaveLength(6);
+    expect(fetchMock.mock.calls.filter(([path]) => path === '/api/projects')).toHaveLength(6);
   });
 
   it('does not recurse when refresh fails', async () => {
@@ -246,7 +246,7 @@ describe('requestApi', () => {
     }));
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(requestApi('/api/todos')).rejects.toMatchObject({ status: 401 });
+    await expect(requestApi('/api/projects')).rejects.toMatchObject({ status: 401 });
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls.filter(([path]) => path === '/api/auth/refresh')).toHaveLength(1);
@@ -281,7 +281,7 @@ describe('requestApi', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(requestApi('/api/todos')).rejects.toMatchObject({ status: 401 });
+    await expect(requestApi('/api/projects')).rejects.toMatchObject({ status: 401 });
 
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(fetchMock.mock.calls.filter(([path]) => path === '/api/auth/refresh')).toHaveLength(1);

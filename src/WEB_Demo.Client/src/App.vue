@@ -10,6 +10,7 @@ import ForbiddenView from './views/ForbiddenView.vue';
 import { onSessionExpired } from './api/authSession';
 import { hasPermission } from './auth/permissions';
 import { RouterView, useRoute, useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 
 const toast = useToast();
 const authUser = ref<AuthUser | null>(null);
@@ -17,6 +18,7 @@ const authLoading = ref(true);
 const dashboardRefreshKey = ref(0);
 const route = useRoute();
 const router = useRouter();
+const { t } = useI18n();
 let stopSessionExpiredListener: (() => void) | null = null;
 const routeAllowed = computed(() => !route.meta.permission || Boolean(authUser.value && hasPermission(authUser.value, route.meta.permission)));
 
@@ -42,14 +44,14 @@ function refreshDashboard() {
 
 function handleSessionExpired() {
   authUser.value = null;
-  toast.add({ severity: 'warn', detail: 'Your session has expired. Please sign in again.', life: 4000 });
+  toast.add({ severity: 'warn', detail: t('auth.sessionExpired'), life: 4000 });
 }
 
 async function signOut() {
   await logout();
   authUser.value = null;
   await router.push({ name: 'dashboard' });
-  toast.add({ severity: 'success', detail: 'Signed out.', life: 2600 });
+  toast.add({ severity: 'success', detail: t('auth.signedOut'), life: 2600 });
 }
 
 onMounted(() => {
@@ -63,7 +65,7 @@ onUnmounted(() => stopSessionExpiredListener?.());
 <template>
   <Toast position="top-center" />
 
-  <div v-if="authLoading" class="auth-loading">Restoring session...</div>
+  <div v-if="authLoading" class="auth-loading">{{ t('auth.restoring') }}</div>
 
   <LoginView v-else-if="!authUser" @authenticated="handleAuthenticated" />
 

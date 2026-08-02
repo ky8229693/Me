@@ -2,25 +2,30 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import { ref } from 'vue';
 import PrimeVue from 'primevue/config';
+import ToastService from 'primevue/toastservice';
 import DataTable from 'primevue/datatable';
 import Aura from '@primeuix/themes/aura';
 import IssueListView from './IssueListView.vue';
+import { i18n } from '../../i18n';
 import * as issuesApi from '../../api/issues';
 import { projectWorkspaceKey } from '../../features/projects/projectContext';
 import { createTestRouter } from '../../test/router';
 
 vi.mock('../../api/issues', async importOriginal => ({
-  ...await importOriginal<typeof import('../../api/issues')>(), getIssues: vi.fn()
+  ...await importOriginal<typeof import('../../api/issues')>(), getIssues: vi.fn(), getIssueBoard: vi.fn(),
+  getProjectLabels: vi.fn(), transitionIssue: vi.fn()
 }));
 
 const project = { id: 'project-1', name: 'PMS', description: null, status: 'Active' as const, currentUserRole: 'Owner' as const, createdAt: '2026-07-20T00:00:00Z', updatedAt: '2026-07-20T00:00:00Z' };
-const issue = { id: 'issue-1', projectId: 'project-1', title: 'Search issue', description: null, type: 'Bug' as const, priority: 'High' as const, status: 'Approved' as const, creatorUserId: 'owner', creatorEmail: 'owner@example.com', assigneeUserId: null, assigneeEmail: null, dueDate: null, createdAt: project.createdAt, updatedAt: project.updatedAt, canEdit: true, canAssign: true, canComment: true, allowedTransitions: ['InProgress' as const] };
+const issue = { id: 'issue-1', projectId: 'project-1', title: 'Search issue', description: null, type: 'Bug' as const, priority: 'High' as const, status: 'Approved' as const, creatorUserId: 'owner', creatorEmail: 'owner@example.com', assigneeUserId: null, assigneeEmail: null, dueDate: null, createdAt: project.createdAt, updatedAt: project.updatedAt, canEdit: true, canAssign: true, canComment: true, allowedTransitions: ['InProgress' as const], labels: [] };
 const wrappers: VueWrapper[] = [];
 
 describe('IssueListView', () => {
   beforeEach(() => {
     vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
     vi.mocked(issuesApi.getIssues).mockResolvedValue({ items: [issue], page: 2, pageSize: 50, totalCount: 70 });
+    vi.mocked(issuesApi.getProjectLabels).mockResolvedValue([]);
+    vi.mocked(issuesApi.getIssueBoard).mockResolvedValue({ items: [issue], total: 1, isTruncated: false, statuses: ['Draft','Approved','InProgress','QA','Done'] });
   });
   afterEach(() => { wrappers.splice(0).forEach(wrapper => wrapper.unmount()); vi.clearAllMocks(); vi.unstubAllGlobals(); });
 
@@ -28,7 +33,7 @@ describe('IssueListView', () => {
     const router = await createTestRouter(path);
     const wrapper = mount(IssueListView, {
       global: {
-        plugins: [[PrimeVue, { theme: { preset: Aura } }], router],
+        plugins: [i18n, [PrimeVue, { theme: { preset: Aura } }], ToastService, router],
         provide: { [projectWorkspaceKey as symbol]: { project: ref(project), members: ref([]), currentUser: { id: 'owner', email: 'owner@example.com', roles: [], permissions: [] }, reloadProject: vi.fn(), reloadMembers: vi.fn() } },
         stubs: { IssueCreateDialog: true, teleport: true }
       }
@@ -43,7 +48,7 @@ describe('IssueListView', () => {
 
   it('writes applied filters and paginator state to the URL', async () => {
     const { wrapper, router } = await mountView('/projects/project-1/issues');
-    await wrapper.get('input[aria-label="Search Issues"]').setValue('database');
+    await wrapper.get('input[placeholder="Search title or description"]').setValue('database');
     await wrapper.findAll('button').find(button => button.text().includes('Apply'))!.trigger('click');
     await flushPromises();
     expect(router.currentRoute.value.query.search).toBe('database');
@@ -55,10 +60,19 @@ describe('IssueListView', () => {
 
   it('opens detail with a return URL that restores the filtered list', async () => {
     const { wrapper, router } = await mountView();
-    await wrapper.findAll('button').find(button => button.text().includes('Open'))!.trigger('click');
+    wrapper.getComponent(DataTable).vm.$emit('row-click', { data: issue });
     await flushPromises();
     expect(router.currentRoute.value.name).toBe('project-issue-detail');
     expect(router.currentRoute.value.params.issueId).toBe('issue-1');
     expect(router.currentRoute.value.query.from).toContain('search=Search');
+  });
+
+  it('switches to the route-backed Kanban board', async () => {
+    const { wrapper, router } = await mountView('/projects/project-1/issues');
+    await wrapper.findAll('button').find(button => button.text()==='Board')!.trigger('click');
+    await flushPromises();
+    expect(router.currentRoute.value.query.view).toBe('board');
+    expect(issuesApi.getIssueBoard).toHaveBeenCalled();
+    expect(wrapper.text()).toContain('Search issue');
   });
 });

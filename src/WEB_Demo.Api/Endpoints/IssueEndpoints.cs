@@ -18,6 +18,11 @@ public static class IssueEndpoints
             ToResult(await service.ListAsync(projectId, UserId(principal, users), request)))
             .WithName("ListProjectIssues");
 
+        issues.MapGet("/board", async (Guid projectId, [AsParameters] IssueListQuery request,
+            ClaimsPrincipal principal, UserManager<IdentityUser> users, IssueAdministrationService service) =>
+            ToResult(await service.BoardAsync(projectId, UserId(principal, users), request)))
+            .WithName("GetProjectIssueBoard");
+
         issues.MapPost("/", async (Guid projectId, CreateIssueRequest request, ClaimsPrincipal principal,
             UserManager<IdentityUser> users, IssueAdministrationService service) =>
         {
@@ -62,6 +67,34 @@ public static class IssueEndpoints
             IssueAdministrationService service) =>
             ToResult(await service.AddCommentAsync(projectId, issueId, UserId(principal, users), request.Content)))
             .WithName("AddProjectIssueComment");
+
+        var labels = endpoints.MapGroup("/api/projects/{projectId:guid}/labels")
+            .WithTags("Issue Labels").RequireAuthorization();
+
+        labels.MapGet("/", async (Guid projectId, ClaimsPrincipal principal,
+            UserManager<IdentityUser> users, ProjectLabelAdministrationService service) =>
+            ToResult(await service.ListAsync(projectId, UserId(principal, users))))
+            .WithName("ListProjectLabels");
+
+        labels.MapPost("/", async (Guid projectId, CreateProjectLabelRequest request, ClaimsPrincipal principal,
+            UserManager<IdentityUser> users, ProjectLabelAdministrationService service) =>
+        {
+            var result = await service.CreateAsync(projectId, UserId(principal, users), request);
+            return result.Status == AdministrationResultStatus.Success
+                ? Results.Created($"/api/projects/{projectId}/labels/{result.Data!.Id}",
+                    ApiResponse<IssueLabelInfo>.Ok(result.Data, result.Message))
+                : ToResult(result);
+        }).WithName("CreateProjectLabel");
+
+        labels.MapPut("/{labelId:guid}", async (Guid projectId, Guid labelId, UpdateProjectLabelRequest request,
+            ClaimsPrincipal principal, UserManager<IdentityUser> users, ProjectLabelAdministrationService service) =>
+            ToResult(await service.UpdateAsync(projectId, labelId, UserId(principal, users), request)))
+            .WithName("UpdateProjectLabel");
+
+        labels.MapDelete("/{labelId:guid}", async (Guid projectId, Guid labelId, ClaimsPrincipal principal,
+            UserManager<IdentityUser> users, ProjectLabelAdministrationService service) =>
+            ToResult(await service.DeleteAsync(projectId, labelId, UserId(principal, users))))
+            .WithName("DeleteProjectLabel");
 
         return endpoints;
     }

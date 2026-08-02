@@ -7,9 +7,11 @@ import { router } from './router';
 import 'primeicons/primeicons.css';
 import './styles/tailwind.css';
 import './styles/styles.scss';
+import { currentLocale, i18n, primeVueLocaleFor } from './i18n';
 
 createApp(App)
   .use(PrimeVue, {
+    locale: primeVueLocaleFor(currentLocale.value),
     theme: {
       preset: Aura,
       options: {
@@ -17,6 +19,7 @@ createApp(App)
       }
     }
   })
+  .use(i18n)
   .use(ToastService)
   .use(router)
   .mount('#app');

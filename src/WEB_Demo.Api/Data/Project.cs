@@ -27,4 +27,5 @@ public sealed class Project
     public ICollection<Issue> Issues { get; set; } = [];
     public ICollection<IssueHistory> IssueHistory { get; set; } = [];
     public ICollection<IssueComment> IssueComments { get; set; } = [];
+    public ICollection<ProjectLabel> Labels { get; set; } = [];
 }

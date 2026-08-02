@@ -16,6 +16,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<Issue> Issues => Set<Issue>();
     public DbSet<IssueHistory> IssueHistory => Set<IssueHistory>();
     public DbSet<IssueComment> IssueComments => Set<IssueComment>();
+    public DbSet<ProjectLabel> ProjectLabels => Set<ProjectLabel>();
+    public DbSet<IssueLabel> IssueLabels => Set<IssueLabel>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -118,6 +120,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
             entity.HasIndex(item => new { item.ProjectId, item.Type });
             entity.HasIndex(item => new { item.ProjectId, item.Priority });
             entity.HasIndex(item => new { item.ProjectId, item.AssigneeUserId });
+            entity.HasIndex(item => new { item.AssigneeUserId, item.Status, item.DueDate });
             entity.HasOne(item => item.Project).WithMany(project => project.Issues)
                 .HasForeignKey(item => item.ProjectId).OnDelete(DeleteBehavior.Cascade);
             entity.HasOne(item => item.CreatorUser).WithMany()
@@ -159,6 +162,29 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
                 .HasForeignKey(item => item.IssueId).OnDelete(DeleteBehavior.Cascade);
             entity.HasOne(item => item.AuthorUser).WithMany()
                 .HasForeignKey(item => item.AuthorUserId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<ProjectLabel>(entity =>
+        {
+            entity.ToTable("ProjectLabels");
+            entity.HasKey(item => item.Id);
+            entity.Property(item => item.Name).HasMaxLength(40).IsRequired();
+            entity.Property(item => item.NormalizedName).HasMaxLength(40).IsRequired();
+            entity.Property(item => item.Color).HasMaxLength(7).IsRequired();
+            entity.HasIndex(item => new { item.ProjectId, item.NormalizedName }).IsUnique();
+            entity.HasOne(item => item.Project).WithMany(project => project.Labels)
+                .HasForeignKey(item => item.ProjectId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<IssueLabel>(entity =>
+        {
+            entity.ToTable("IssueLabels");
+            entity.HasKey(item => new { item.IssueId, item.LabelId });
+            entity.HasIndex(item => item.LabelId);
+            entity.HasOne(item => item.Issue).WithMany(issue => issue.IssueLabels)
+                .HasForeignKey(item => item.IssueId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(item => item.Label).WithMany(label => label.IssueLabels)
+                .HasForeignKey(item => item.LabelId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

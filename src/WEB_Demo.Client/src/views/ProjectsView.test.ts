@@ -3,6 +3,7 @@ import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import PrimeVue from 'primevue/config';
 import Aura from '@primeuix/themes/aura';
 import ProjectsView from './ProjectsView.vue';
+import { i18n } from '../i18n';
 import * as projectApi from '../api/projects';
 
 const routerPush = vi.fn();
@@ -53,7 +54,7 @@ describe('ProjectsView', () => {
     const wrapper = mount(ProjectsView, {
       props: { currentUser: { id: 'owner', email: 'owner@example.com', roles: ['Admin'], permissions } },
       global: {
-        plugins: [[PrimeVue, { theme: { preset: Aura } }]],
+        plugins: [i18n, [PrimeVue, { theme: { preset: Aura } }]],
         stubs: { teleport: true }
       }
     });

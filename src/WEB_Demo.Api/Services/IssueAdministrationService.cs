@@ -7,6 +7,8 @@ namespace WEB_Demo.Api.Services;
 
 public sealed class IssueAdministrationService(AppDbContext dbContext, ProjectAccessService projectAccess)
 {
+    private const int BoardLimit = 500;
+
     public async Task<AdministrationResult<PagedResult<IssueInfo>>> ListAsync(
         Guid projectId, string userId, IssueListQuery request)
     {
@@ -19,8 +21,15 @@ public sealed class IssueAdministrationService(AppDbContext dbContext, ProjectAc
             !TryParseOptional<IssuePriority>(request.Priority, out var priority))
             return AdministrationResult<PagedResult<IssueInfo>>.Validation("One or more Issue filters are invalid.");
 
+        var labelIds = ParseLabelIds(request.Labels);
+        if (labelIds is null)
+            return AdministrationResult<PagedResult<IssueInfo>>.Validation("One or more label filters are invalid.");
+        if (!await LabelsBelongToProjectAsync(projectId, labelIds))
+            return AdministrationResult<PagedResult<IssueInfo>>.Validation("One or more labels do not belong to this project.");
+
         var query = dbContext.Issues.AsNoTracking()
             .Include(item => item.CreatorUser).Include(item => item.AssigneeUser)
+            .Include(item => item.IssueLabels).ThenInclude(item => item.Label)
             .Where(item => item.ProjectId == projectId);
         var search = request.Search?.Trim().ToLower();
         if (!string.IsNullOrEmpty(search))
@@ -32,6 +41,8 @@ public sealed class IssueAdministrationService(AppDbContext dbContext, ProjectAc
         if (request.ExcludeDone) query = query.Where(item => item.Status != IssueStatus.Done);
         if (!string.IsNullOrWhiteSpace(request.AssigneeUserId))
             query = query.Where(item => item.AssigneeUserId == request.AssigneeUserId);
+        foreach (var labelId in labelIds)
+            query = query.Where(item => item.IssueLabels.Any(mapping => mapping.LabelId == labelId));
 
         var total = await query.CountAsync();
         var issues = await query.OrderByDescending(item => item.UpdatedAt)
@@ -39,6 +50,43 @@ public sealed class IssueAdministrationService(AppDbContext dbContext, ProjectAc
         var items = issues.Select(item => ToInfo(item, context.Value.Member, context.Value.Project.Status)).ToArray();
         return AdministrationResult<PagedResult<IssueInfo>>.Success(
             new PagedResult<IssueInfo>(items, request.Page, request.PageSize, total));
+    }
+
+    public async Task<AdministrationResult<IssueBoardInfo>> BoardAsync(
+        Guid projectId, string userId, IssueListQuery request)
+    {
+        var boardRequest = request with { Page = 1, PageSize = 100 };
+        var context = await GetContextAsync(projectId, userId);
+        if (context is null) return AdministrationResult<IssueBoardInfo>.NotFound("Project was not found.");
+        if (!TryParseOptional<IssueType>(request.Type, out var type) ||
+            !TryParseOptional<IssueStatus>(request.Status, out var status) ||
+            !TryParseOptional<IssuePriority>(request.Priority, out var priority))
+            return AdministrationResult<IssueBoardInfo>.Validation("One or more Issue filters are invalid.");
+        var labelIds = ParseLabelIds(request.Labels);
+        if (labelIds is null || !await LabelsBelongToProjectAsync(projectId, labelIds))
+            return AdministrationResult<IssueBoardInfo>.Validation("One or more labels do not belong to this project.");
+
+        var query = dbContext.Issues.AsNoTracking()
+            .Include(item => item.CreatorUser).Include(item => item.AssigneeUser)
+            .Include(item => item.IssueLabels).ThenInclude(item => item.Label)
+            .Where(item => item.ProjectId == projectId);
+        var search = boardRequest.Search?.Trim().ToLower();
+        if (!string.IsNullOrEmpty(search))
+            query = query.Where(item => item.Title.ToLower().Contains(search) ||
+                item.Description != null && item.Description.ToLower().Contains(search));
+        if (type.HasValue) query = query.Where(item => item.Type == type.Value);
+        if (status.HasValue) query = query.Where(item => item.Status == status.Value);
+        if (priority.HasValue) query = query.Where(item => item.Priority == priority.Value);
+        if (!string.IsNullOrWhiteSpace(boardRequest.AssigneeUserId))
+            query = query.Where(item => item.AssigneeUserId == boardRequest.AssigneeUserId);
+        foreach (var labelId in labelIds)
+            query = query.Where(item => item.IssueLabels.Any(mapping => mapping.LabelId == labelId));
+
+        var total = await query.CountAsync();
+        var issues = await query.OrderByDescending(item => item.UpdatedAt).Take(BoardLimit).ToArrayAsync();
+        return AdministrationResult<IssueBoardInfo>.Success(new IssueBoardInfo(
+            issues.Select(item => ToInfo(item, context.Value.Member, context.Value.Project.Status)).ToArray(),
+            total, total > BoardLimit, Enum.GetNames<IssueStatus>()));
     }
 
     public async Task<AdministrationResult<IssueInfo>> GetAsync(Guid projectId, Guid issueId, string userId)
@@ -64,6 +112,9 @@ public sealed class IssueAdministrationService(AppDbContext dbContext, ProjectAc
         if (validation is not null) return AdministrationResult<IssueInfo>.Validation(validation);
         var assigneeFailure = await ValidateAssigneeAsync(projectId, context.Value.Member, request.AssigneeUserId, true);
         if (assigneeFailure is not null) return AdministrationResult<IssueInfo>.Forbidden(assigneeFailure);
+        var labelIds = request.LabelIds?.Distinct().ToArray() ?? [];
+        if (!await LabelsBelongToProjectAsync(projectId, labelIds))
+            return AdministrationResult<IssueInfo>.Validation("One or more labels do not belong to this project.");
 
         var now = DateTimeOffset.UtcNow;
         var issue = new Issue
@@ -74,6 +125,7 @@ public sealed class IssueAdministrationService(AppDbContext dbContext, ProjectAc
             CreatedAt = now, UpdatedAt = now
         };
         dbContext.Issues.Add(issue);
+        foreach (var labelId in labelIds) issue.IssueLabels.Add(new IssueLabel { IssueId = issue.Id, LabelId = labelId });
         AddHistory(issue, userId, IssueHistoryChangeType.Created, null, null, issue.Title, now);
         await dbContext.SaveChangesAsync();
         return await GetAsync(projectId, issue.Id, userId);
@@ -84,7 +136,8 @@ public sealed class IssueAdministrationService(AppDbContext dbContext, ProjectAc
     {
         var context = await GetContextAsync(projectId, userId);
         if (context is null) return AdministrationResult<IssueInfo>.NotFound("Issue was not found.");
-        var issue = await dbContext.Issues.SingleOrDefaultAsync(item => item.ProjectId == projectId && item.Id == issueId);
+        var issue = await dbContext.Issues.Include(item => item.IssueLabels).ThenInclude(item => item.Label)
+            .SingleOrDefaultAsync(item => item.ProjectId == projectId && item.Id == issueId);
         if (issue is null) return AdministrationResult<IssueInfo>.NotFound("Issue was not found.");
         if (!IssueAccessService.CanEdit(context.Value.Member, context.Value.Project.Status, issue))
             return AdministrationResult<IssueInfo>.Forbidden(context.Value.Project.Status == ProjectStatus.Archived
@@ -92,6 +145,9 @@ public sealed class IssueAdministrationService(AppDbContext dbContext, ProjectAc
         var validation = ValidateFields(request.Title, request.Description, request.Type, request.Priority,
             out var title, out var description, out var type, out var priority);
         if (validation is not null) return AdministrationResult<IssueInfo>.Validation(validation);
+        var labelIds = request.LabelIds?.Distinct().ToArray() ?? [];
+        if (!await LabelsBelongToProjectAsync(projectId, labelIds))
+            return AdministrationResult<IssueInfo>.Validation("One or more labels do not belong to this project.");
 
         var now = DateTimeOffset.UtcNow;
         TrackChange(issue, userId, nameof(Issue.Title), issue.Title, title, now, value => issue.Title = value!);
@@ -99,6 +155,18 @@ public sealed class IssueAdministrationService(AppDbContext dbContext, ProjectAc
         TrackChange(issue, userId, nameof(Issue.Type), issue.Type.ToString(), type.ToString(), now, _ => issue.Type = type);
         TrackChange(issue, userId, nameof(Issue.Priority), issue.Priority.ToString(), priority.ToString(), now, _ => issue.Priority = priority);
         TrackChange(issue, userId, nameof(Issue.DueDate), FormatDate(issue.DueDate), FormatDate(request.DueDate), now, _ => issue.DueDate = request.DueDate);
+        var previousLabels = issue.IssueLabels.Select(item => item.Label.Name).Order().ToArray();
+        var existingIds = issue.IssueLabels.Select(item => item.LabelId).ToHashSet();
+        if (!existingIds.SetEquals(labelIds))
+        {
+            dbContext.IssueLabels.RemoveRange(issue.IssueLabels.Where(item => !labelIds.Contains(item.LabelId)));
+            foreach (var labelId in labelIds.Where(id => !existingIds.Contains(id)))
+                dbContext.IssueLabels.Add(new IssueLabel { IssueId = issue.Id, LabelId = labelId });
+            var nextLabels = await dbContext.ProjectLabels.Where(item => labelIds.Contains(item.Id))
+                .OrderBy(item => item.Name).Select(item => item.Name).ToArrayAsync();
+            AddHistory(issue, userId, IssueHistoryChangeType.FieldChanged, "Labels",
+                string.Join(", ", previousLabels), string.Join(", ", nextLabels), now);
+        }
         issue.UpdatedAt = now;
         await dbContext.SaveChangesAsync();
         return await GetAsync(projectId, issueId, userId);
@@ -208,7 +276,28 @@ public sealed class IssueAdministrationService(AppDbContext dbContext, ProjectAc
 
     private IQueryable<Issue> QueryIssue(Guid projectId, Guid issueId) =>
         dbContext.Issues.AsNoTracking().Include(item => item.CreatorUser).Include(item => item.AssigneeUser)
+            .Include(item => item.IssueLabels).ThenInclude(item => item.Label)
             .Where(item => item.ProjectId == projectId && item.Id == issueId);
+
+    private async Task<bool> LabelsBelongToProjectAsync(Guid projectId, IReadOnlyCollection<Guid> labelIds)
+    {
+        if (labelIds.Count == 0) return true;
+        var count = await dbContext.ProjectLabels.CountAsync(item =>
+            item.ProjectId == projectId && labelIds.Contains(item.Id));
+        return count == labelIds.Distinct().Count();
+    }
+
+    private static Guid[]? ParseLabelIds(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return [];
+        var result = new List<Guid>();
+        foreach (var part in value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (!Guid.TryParse(part, out var id)) return null;
+            if (!result.Contains(id)) result.Add(id);
+        }
+        return result.ToArray();
+    }
 
     private async Task<string?> ValidateAssigneeAsync(
         Guid projectId, ProjectMembership actor, string? assigneeUserId, bool duringCreation)
@@ -263,7 +352,9 @@ public sealed class IssueAdministrationService(AppDbContext dbContext, ProjectAc
             issue.AssigneeUserId, issue.AssigneeUser?.Email, issue.DueDate, issue.CreatedAt, issue.UpdatedAt,
             IssueAccessService.CanEdit(member, projectStatus, issue), IssueAccessService.CanAssign(member, projectStatus),
             IssueAccessService.CanComment(member, projectStatus),
-            IssueAccessService.AllowedTransitions(member, projectStatus, issue).Select(item => item.ToString()).ToArray());
+            IssueAccessService.AllowedTransitions(member, projectStatus, issue).Select(item => item.ToString()).ToArray(),
+            issue.IssueLabels.Select(item => new IssueLabelInfo(item.Label.Id, item.Label.Name, item.Label.Color))
+                .OrderBy(item => item.Name).ToArray());
 
     private static string? NormalizeId(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     private static string? FormatDate(DateTimeOffset? value) => value?.ToUniversalTime().ToString("O");

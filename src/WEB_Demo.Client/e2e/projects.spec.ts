@@ -21,7 +21,7 @@ test('Project Owner 可以建立專案、加入成員並封存與還原', async 
   await expect(page.getByRole('heading', { name: projectName })).toBeVisible();
   const projectNavigation = page.getByRole('navigation', { name: 'Project navigation' });
   await projectNavigation.getByRole('link', { name: 'Members' }).click();
-  await page.getByLabel('Existing user email').fill('e2e-');
+  await page.getByLabel('Email', { exact: true }).fill('e2e-');
   await page.getByRole('option', { name: target.email, exact: true }).click();
   await page.getByRole('button', { name: 'Add member' }).click();
   await expect(page.getByRole('row').filter({ hasText: target.email })).toBeVisible();

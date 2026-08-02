@@ -43,4 +43,17 @@ CI 不使用 `pull_request_target`、production secrets 或 deployment credentia
 - `E2E`
 - `Containers`
 
+## Local verification policy
+
+本機驗證採風險導向，不要求每個 OpenSpec change 完成後都重跑整套 CI：
+
+- 開發過程執行受影響的 build、unit tests 與 integration tests。
+- 未新增或修改 E2E spec／共用基礎時，不需在本機重跑未受影響的 E2E，交由 CI 驗證即可。
+- 新增或修改 E2E spec 時，完成前至少在本機執行該受影響 spec 一次。
+- 修改 E2E runner、authentication helpers、database lifecycle、global setup、Playwright config 或 Docker integration 等共用基礎時，因可能影響全部 specs，本機必須執行完整 E2E suite。
+- 認證、路由、資料庫、前後端整合或 workflow 有變更時，本機執行受影響的 Playwright spec；其餘未受影響的 E2E 可由 CI 驗證。
+- 只有 Dockerfile、Compose、Nginx、環境變數 interpolation、production build 或部署設定有變更時，才要求本機執行 Compose config 與 image builds。一般應用功能交由 CI `Containers` job 驗證。
+- OpenSpec verification task 可接受本機或 CI 的等效成功證據，不應僅因未在本機重複執行未受影響的 CI check 而保持未完成。
+- 合併前仍必須確認 `Backend`、`Frontend`、`OpenSpec`、`E2E` 與 `Containers` 全部通過；建議將它們設定為 branch protection required checks。
+
 Required checks 與 branch protection 屬 GitHub repository administration，不由此 workflow 自動修改。

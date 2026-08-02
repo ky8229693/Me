@@ -3,6 +3,7 @@ import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import PrimeVue from 'primevue/config';
 import Aura from '@primeuix/themes/aura';
 import ProjectWorkspaceView from './ProjectWorkspaceView.vue';
+import { i18n } from '../../i18n';
 import * as projectsApi from '../../api/projects';
 import { createTestRouter } from '../../test/router';
 
@@ -27,7 +28,7 @@ describe('ProjectWorkspaceView', () => {
     const wrapper = mount(ProjectWorkspaceView, {
       props: { currentUser: user },
       global: {
-        plugins: [[PrimeVue, { theme: { preset: Aura } }], router],
+        plugins: [i18n, [PrimeVue, { theme: { preset: Aura } }], router],
         stubs: { RouterView: true }
       }
     });
@@ -60,8 +61,7 @@ describe('ProjectWorkspaceView', () => {
   it('shows a Not Found style state when membership does not expose the project', async () => {
     vi.mocked(projectsApi.getProject).mockResolvedValue(null);
     const { wrapper } = await mountWorkspace('/projects/hidden-project/overview');
-    expect(wrapper.text()).toContain('Project unavailable');
-    expect(wrapper.text()).toContain('Project was not found');
+    expect(wrapper.text()).toContain('Project not found or not accessible');
     expect(wrapper.text()).not.toContain('Core workspace');
   });
 });

@@ -1,130 +1,17 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
-import Message from 'primevue/message';
-import Skeleton from 'primevue/skeleton';
-import Tag from 'primevue/tag';
-import { useToast } from 'primevue/usetoast';
-import TodoForm from '../features/todos/TodoForm.vue';
-import TodoTable from '../features/todos/TodoTable.vue';
-import { createTodo, deleteTodo as deleteTodoItem, getTodos, toggleTodo as toggleTodoItem } from '../api/todos';
-import type { TodoItem } from '../api/types';
+import { onMounted, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
+import Button from 'primevue/button'; import Message from 'primevue/message'; import ProgressSpinner from 'primevue/progressspinner'; import Tag from 'primevue/tag';
+import { getDashboard } from '../api/dashboard';
+import type { DashboardInfo, DashboardIssueInfo } from '../api/types';
+import { useI18n } from 'vue-i18n';
+import { useDomainLabels } from '../i18n/domain';
 
-const props = defineProps<{
-  refreshKey: number;
-}>();
-
-const toast = useToast();
-const todos = ref<TodoItem[]>([]);
-const isLoading = ref(false);
-const errorMessage = ref('');
-
-const remainingCount = computed(() => todos.value.filter(todo => !todo.isDone).length);
-const completedCount = computed(() => todos.value.length - remainingCount.value);
-
-function notify(severity: 'success' | 'info' | 'warn' | 'error', detail: string) {
-  toast.add({ severity, detail, life: 2600 });
-}
-
-async function loadTodos() {
-  isLoading.value = true;
-  errorMessage.value = '';
-
-  try {
-    todos.value = await getTodos();
-  } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : 'Unknown error.';
-  } finally {
-    isLoading.value = false;
-  }
-}
-
-async function addTodo(rawTitle: string) {
-  const title = rawTitle.trim();
-  if (!title) {
-    notify('warn', 'Please enter a todo title.');
-    return;
-  }
-
-  try {
-    const todo = await createTodo(title);
-
-    if (todo) {
-      todos.value.push(todo);
-    }
-
-    notify('success', 'Created.');
-  } catch (error) {
-    notify('error', error instanceof Error ? error.message : 'Create failed.');
-  }
-}
-
-async function toggleTodo(todo: TodoItem) {
-  try {
-    const updatedTodo = await toggleTodoItem(todo.id);
-
-    if (updatedTodo) {
-      todos.value = todos.value.map(item => (item.id === updatedTodo.id ? updatedTodo : item));
-    }
-  } catch (error) {
-    notify('error', error instanceof Error ? error.message : 'Update failed.');
-  }
-}
-
-async function deleteTodo(todo: TodoItem) {
-  try {
-    await deleteTodoItem(todo.id);
-
-    todos.value = todos.value.filter(item => item.id !== todo.id);
-    notify('success', 'Deleted.');
-  } catch (error) {
-    notify('error', error instanceof Error ? error.message : 'Delete failed.');
-  }
-}
-
-watch(
-  () => props.refreshKey,
-  () => {
-    void loadTodos();
-  }
-);
-
-onMounted(loadTodos);
+const props=defineProps<{refreshKey:number}>();const router=useRouter();const data=ref<DashboardInfo|null>(null);const loading=ref(false);const error=ref('');
+const{t,locale}=useI18n();const{issueStatusLabel,priorityLabel}=useDomainLabels();
+async function load(){loading.value=true;error.value='';try{data.value=await getDashboard();}catch(cause){error.value=cause instanceof Error?cause.message:t('dashboard.loadFailed');}finally{loading.value=false;}}
+function open(item:DashboardIssueInfo){void router.push({name:'project-issue-detail',params:{projectId:item.projectId,issueId:item.id},query:{from:'/dashboard'}});}
+watch(()=>props.refreshKey,load);onMounted(load);
 </script>
-
-<template>
-  <section class="workspace border-surface bg-surface-0 dark:bg-surface-900">
-    <header class="page-header">
-      <div>
-        <p class="eyebrow text-primary">ASP.NET Core API + Vue 3 + PrimeVue</p>
-        <h1>Dashboard</h1>
-      </div>
-
-      <div class="summary">
-        <Tag severity="warn" :value="`${remainingCount} pending`" />
-        <Tag severity="success" :value="`${completedCount} done`" />
-      </div>
-    </header>
-
-    <TodoForm @add="addTodo" @refresh="loadTodos" />
-
-    <Message
-      v-if="errorMessage"
-      class="content-alert"
-      severity="error"
-      :closable="false"
-    >
-      {{ errorMessage }}
-    </Message>
-
-    <div v-if="isLoading" class="skeleton-list" aria-label="Loading todo items">
-      <Skeleton v-for="index in 5" :key="index" height="2.75rem" />
-    </div>
-
-    <div v-else-if="todos.length === 0" class="empty-state">
-      <i class="pi pi-inbox" aria-hidden="true"></i>
-      <span>No todo items yet</span>
-    </div>
-
-    <TodoTable v-else :todos="todos" @toggle="toggleTodo" @delete="deleteTodo" />
-  </section>
-</template>
+<template><section class="workspace dashboard-workbench"><header class="page-header"><div><p class="eyebrow">{{t('dashboard.eyebrow')}}</p><h1>{{t('dashboard.title')}}</h1><p>{{t('dashboard.subtitle')}}</p></div><Button :label="t('common.refresh')" icon="pi pi-refresh" severity="secondary" @click="load"/></header><div v-if="loading" class="dashboard-state"><ProgressSpinner :aria-label="t('dashboard.loading')"/></div><Message v-else-if="error" severity="error"><div class="error-row"><span>{{error}}</span><Button :label="t('common.retry')" size="small" @click="load"/></div></Message><template v-else-if="data"><div class="metric-grid"><article class="metric-card"><span>{{t('dashboard.assigned')}}</span><strong>{{data.assignedCount}}</strong></article><article class="metric-card overdue"><span>{{t('dashboard.overdue')}}</span><strong>{{data.overdueCount}}</strong></article><article v-for="item in data.statusCounts" :key="item.status" class="metric-card compact"><span>{{issueStatusLabel(item.status)}}</span><strong>{{item.count}}</strong></article></div><div class="dashboard-grid"><section class="dashboard-card"><h2>{{t('dashboard.assignedWork')}}</h2><button v-for="item in data.assignedIssues" :key="item.id" class="work-item" @click="open(item)"><span><strong>{{item.title}}</strong><small>{{item.projectName}} · {{priorityLabel(item.priority)}}</small></span><Tag :value="issueStatusLabel(item.status)"/></button><p v-if="!data.assignedIssues.length" class="muted">{{t('dashboard.noAssigned')}}</p></section><section class="dashboard-card"><h2>{{t('dashboard.overdue')}}</h2><button v-for="item in data.overdueIssues" :key="item.id" class="work-item" @click="open(item)"><span><strong>{{item.title}}</strong><small>{{item.projectName}} · {{item.dueDate?new Date(item.dueDate).toLocaleString(locale):''}}</small></span><Tag severity="danger" :value="t('dashboard.overdue')"/></button><p v-if="!data.overdueIssues.length" class="muted">{{t('dashboard.nothingOverdue')}}</p></section><section class="dashboard-card activity"><h2>{{t('dashboard.recentActivity')}}</h2><button v-for="item in data.recentActivity" :key="`${item.issueId}-${item.createdAt}`" class="work-item" @click="item.issueId&&router.push({name:'project-issue-detail',params:{projectId:item.projectId,issueId:item.issueId}})"><span><strong>{{item.description}}</strong><small>{{item.projectName}} · {{new Date(item.createdAt).toLocaleString(locale)}}</small></span></button><p v-if="!data.recentActivity.length" class="muted">{{t('dashboard.noActivity')}}</p></section></div></template></section></template>
+<style scoped>.page-header p{color:var(--text-color-secondary)}.dashboard-state{min-height:16rem;display:grid;place-items:center}.error-row,.work-item{display:flex;align-items:center;justify-content:space-between;gap:1rem}.metric-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:.75rem}.metric-card,.dashboard-card{border:1px solid var(--surface-border);border-radius:var(--content-border-radius);background:var(--surface-card);padding:1rem}.metric-card{grid-column:span 2}.metric-card.compact{grid-column:span 1}.metric-card span,.work-item small,.muted{display:block;color:var(--text-color-secondary)}.metric-card strong{display:block;font-size:2rem;margin-top:.4rem}.metric-card.overdue strong{color:var(--p-red-500)}.dashboard-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:1rem}.dashboard-card.activity{grid-column:1/-1}.dashboard-card h2{margin-top:0}.work-item{width:100%;border:0;border-top:1px solid var(--surface-border);background:transparent;color:inherit;padding:.85rem 0;text-align:left;cursor:pointer}.work-item:hover strong{color:var(--primary-color)}@media(max-width:900px){.metric-grid{grid-template-columns:repeat(2,1fr)}.metric-card,.metric-card.compact{grid-column:span 1}.dashboard-grid{grid-template-columns:1fr}.dashboard-card.activity{grid-column:auto}}</style>

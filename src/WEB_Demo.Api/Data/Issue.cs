@@ -45,4 +45,5 @@ public sealed class Issue
     public IdentityUser? AssigneeUser { get; set; }
     public ICollection<IssueHistory> History { get; set; } = [];
     public ICollection<IssueComment> Comments { get; set; } = [];
+    public ICollection<IssueLabel> IssueLabels { get; set; } = [];
 }

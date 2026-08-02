@@ -1,5 +1,5 @@
 import { requestApi } from './http';
-import type { IssueCommentInfo, IssueHistoryInfo, IssueInfo, IssuePriority, IssueStatus, IssueType, PagedResult } from './types';
+import type { IssueBoardInfo, IssueCommentInfo, IssueHistoryInfo, IssueInfo, IssueLabelInfo, IssuePriority, IssueStatus, IssueType, PagedResult } from './types';
 
 export const issueTypes: IssueType[] = ['Feature', 'Bug', 'ChangeRequest'];
 export const issuePriorities: IssuePriority[] = ['Low', 'Medium', 'High', 'Critical'];
@@ -14,6 +14,21 @@ export function getIssues(projectId: string, filters: Record<string, string | nu
   });
   return requestApi<PagedResult<IssueInfo>>(`${root(projectId)}?${query}`);
 }
+
+export function getIssueBoard(projectId: string, filters: Record<string, string | number | boolean | null | undefined>) {
+  const query = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => { if (value !== null && value !== undefined && value !== '') query.set(key, String(value)); });
+  return requestApi<IssueBoardInfo>(`${root(projectId)}/board?${query}`);
+}
+
+const labelsRoot = (projectId: string) => `/api/projects/${encodeURIComponent(projectId)}/labels`;
+export const getProjectLabels = (projectId: string) => requestApi<IssueLabelInfo[]>(labelsRoot(projectId));
+export const createProjectLabel = (projectId: string, name: string, color: string) =>
+  requestApi<IssueLabelInfo>(labelsRoot(projectId), { method: 'POST', body: { name, color } });
+export const updateProjectLabel = (projectId: string, labelId: string, name: string, color: string) =>
+  requestApi<IssueLabelInfo>(`${labelsRoot(projectId)}/${labelId}`, { method: 'PUT', body: { name, color } });
+export const deleteProjectLabel = (projectId: string, labelId: string) =>
+  requestApi<object>(`${labelsRoot(projectId)}/${labelId}`, { method: 'DELETE' });
 
 export function createIssue(projectId: string, body: object) {
   return requestApi<IssueInfo>(root(projectId), { method: 'POST', body });

@@ -22,3 +22,23 @@ public sealed record ProjectMemberInfo(
     DateTimeOffset UpdatedAt);
 
 public sealed record ProjectMemberCandidate(string UserId, string Email);
+
+public sealed record ProjectOverviewStatusCount(string Status, int Count);
+
+public sealed record ProjectOverviewIssueInfo(
+    Guid Id,
+    string Title,
+    string Status,
+    string Priority,
+    DateTimeOffset? DueDate,
+    DateTimeOffset UpdatedAt);
+
+public sealed record ProjectOverviewInfo(
+    int TotalCount,
+    int InProgressCount,
+    int CompletedCount,
+    int OverdueCount,
+    int CompletionRate,
+    IReadOnlyCollection<ProjectOverviewStatusCount> StatusCounts,
+    IReadOnlyCollection<ProjectOverviewIssueInfo> RecentIssues,
+    IReadOnlyCollection<ProjectOverviewIssueInfo> UpcomingIssues);

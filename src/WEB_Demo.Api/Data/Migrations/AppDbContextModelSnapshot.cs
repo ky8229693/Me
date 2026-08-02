@@ -271,8 +271,6 @@ namespace WEB_Demo.Api.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("AssigneeUserId");
-
                     b.HasIndex("CreatorUserId");
 
                     b.HasIndex("ProjectId", "AssigneeUserId");
@@ -284,6 +282,8 @@ namespace WEB_Demo.Api.Data.Migrations
                     b.HasIndex("ProjectId", "Type");
 
                     b.HasIndex("ProjectId", "UpdatedAt");
+
+                    b.HasIndex("AssigneeUserId", "Status", "DueDate");
 
                     b.ToTable("Issues", (string)null);
                 });
@@ -370,6 +370,21 @@ namespace WEB_Demo.Api.Data.Migrations
                     b.HasIndex("ProjectId", "CreatedAt");
 
                     b.ToTable("IssueHistory", (string)null);
+                });
+
+            modelBuilder.Entity("WEB_Demo.Api.Data.IssueLabel", b =>
+                {
+                    b.Property<Guid>("IssueId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("LabelId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("IssueId", "LabelId");
+
+                    b.HasIndex("LabelId");
+
+                    b.ToTable("IssueLabels", (string)null);
                 });
 
             modelBuilder.Entity("WEB_Demo.Api.Data.Permission", b =>
@@ -492,6 +507,44 @@ namespace WEB_Demo.Api.Data.Migrations
                     b.HasIndex("ProjectId", "CreatedAt");
 
                     b.ToTable("ProjectAuditEvents", (string)null);
+                });
+
+            modelBuilder.Entity("WEB_Demo.Api.Data.ProjectLabel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Color")
+                        .IsRequired()
+                        .HasMaxLength(7)
+                        .HasColumnType("character varying(7)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProjectId", "NormalizedName")
+                        .IsUnique();
+
+                    b.ToTable("ProjectLabels", (string)null);
                 });
 
             modelBuilder.Entity("WEB_Demo.Api.Data.ProjectMembership", b =>
@@ -727,6 +780,25 @@ namespace WEB_Demo.Api.Data.Migrations
                     b.Navigation("Project");
                 });
 
+            modelBuilder.Entity("WEB_Demo.Api.Data.IssueLabel", b =>
+                {
+                    b.HasOne("WEB_Demo.Api.Data.Issue", "Issue")
+                        .WithMany("IssueLabels")
+                        .HasForeignKey("IssueId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("WEB_Demo.Api.Data.ProjectLabel", "Label")
+                        .WithMany("IssueLabels")
+                        .HasForeignKey("LabelId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Issue");
+
+                    b.Navigation("Label");
+                });
+
             modelBuilder.Entity("WEB_Demo.Api.Data.ProjectAuditEvent", b =>
                 {
                     b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", "ActorUser")
@@ -742,6 +814,17 @@ namespace WEB_Demo.Api.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("ActorUser");
+
+                    b.Navigation("Project");
+                });
+
+            modelBuilder.Entity("WEB_Demo.Api.Data.ProjectLabel", b =>
+                {
+                    b.HasOne("WEB_Demo.Api.Data.Project", "Project")
+                        .WithMany("Labels")
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Project");
                 });
@@ -798,6 +881,8 @@ namespace WEB_Demo.Api.Data.Migrations
                     b.Navigation("Comments");
 
                     b.Navigation("History");
+
+                    b.Navigation("IssueLabels");
                 });
 
             modelBuilder.Entity("WEB_Demo.Api.Data.Permission", b =>
@@ -815,7 +900,14 @@ namespace WEB_Demo.Api.Data.Migrations
 
                     b.Navigation("Issues");
 
+                    b.Navigation("Labels");
+
                     b.Navigation("Memberships");
+                });
+
+            modelBuilder.Entity("WEB_Demo.Api.Data.ProjectLabel", b =>
+                {
+                    b.Navigation("IssueLabels");
                 });
 #pragma warning restore 612, 618
         }
