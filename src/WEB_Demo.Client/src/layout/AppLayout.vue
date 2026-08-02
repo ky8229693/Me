@@ -5,10 +5,12 @@ import AppSidebar from './AppSidebar.vue';
 import AppTopbar from './AppTopbar.vue';
 import type { MenuGroup } from './types';
 import { hasPermission, permissions } from '../auth/permissions';
+import { useI18n } from 'vue-i18n';
 
 const props = defineProps<{
   user: AuthUser;
 }>();
+const { t } = useI18n();
 
 const emit = defineEmits<{
   logout: [];
@@ -19,15 +21,18 @@ const isSidebarOpen = ref(false);
 const menuGroups = computed<MenuGroup[]>(() => {
   const administration: MenuGroup['items'] = [];
   if (hasPermission(props.user, permissions.usersRead)) {
-    administration.push({ routeName: 'users', label: 'User Management', icon: 'pi pi-users' });
+    administration.push({ routeName: 'users', label: t('layout.users'), icon: 'pi pi-users' });
   }
   if (hasPermission(props.user, permissions.rolesRead)) {
-    administration.push({ routeName: 'roles', label: 'Role Management', icon: 'pi pi-shield' });
+    administration.push({ routeName: 'roles', label: t('layout.roles'), icon: 'pi pi-shield' });
   }
   return [
-    { label: 'Workbench', items: [{ routeName: 'dashboard', label: 'Dashboard', icon: 'pi pi-home' }] },
-    { label: 'Project Management', items: [{ routeName: 'projects', label: 'Projects', icon: 'pi pi-briefcase' }] },
-    { label: 'System Administration', items: administration }
+    { label: t('layout.workbench'), items: [
+      { routeName: 'dashboard', label: t('layout.dashboard'), icon: 'pi pi-home' },
+      { routeName: 'spec-assistant', label: t('layout.specAssistant'), icon: 'pi pi-sparkles' }
+    ] },
+    { label: t('layout.projectManagement'), items: [{ routeName: 'projects', label: t('layout.projects'), icon: 'pi pi-briefcase' }] },
+    { label: t('layout.systemAdministration'), items: administration }
   ];
 });
 
@@ -61,7 +66,7 @@ function closeSidebar() {
       v-if="isSidebarOpen"
       type="button"
       class="layout-mask"
-      aria-label="Close navigation"
+      :aria-label="t('layout.closeNavigation')"
       @click="closeSidebar"
     ></button>
 

@@ -16,6 +16,31 @@ Local development 使用 HTTP only。
 GitHub Actions jobs、本機等價指令、失敗診斷與 required checks 請見
 [`continuous-integration.md`](continuous-integration.md)。
 
+## Specification Assistant (Phase 1)
+
+第一階段使用文字比對檢索 OpenSpec Markdown，再由 API 直接呼叫 OpenAI-compatible Chat Completions endpoint。模型設定只存在後端；不要將 API Key 寫入 `appsettings*.json`、前端環境變數或版控。
+
+使用 .NET user secrets 設定：
+
+```powershell
+cd src/WEB_Demo.Api
+dotnet user-secrets init
+dotnet user-secrets set "SpecAssistant:BaseUrl" "https://api.openai.com/v1/"
+dotnet user-secrets set "SpecAssistant:Model" "your-model-name"
+dotnet user-secrets set "SpecAssistant:ApiKey" "your-api-key"
+```
+
+也可以使用環境變數：
+
+```powershell
+$env:SpecAssistant__BaseUrl = "https://api.openai.com/v1/"
+$env:SpecAssistant__Model = "your-model-name"
+$env:SpecAssistant__ApiKey = "your-api-key"
+dotnet run
+```
+
+未設定模型時，應用程式仍會正常啟動；只有 `/api/spec-assistant/query` 在找到候選規格並需要模型回答時會回傳 `503 SPEC_ASSISTANT_UNAVAILABLE`。
+
 認證預設使用 15 分鐘 access token 與 7 天固定到期 refresh token。Development 的 refresh cookie 因 HTTP only 不設 `Secure`；Production 一律設為 `Secure`，因此正式環境必須由 HTTPS 提供服務。Cookie 為 `HttpOnly`、`SameSite=Strict`，且 path 限制為 `/api/auth`。
 
 ## Backend
@@ -33,6 +58,24 @@ dotnet build
 ```
 
 ## Frontend
+
+登入後 Dashboard 會彙整目前使用者可存取的 active Projects，顯示 assigned／overdue Issues、workflow 狀態摘要與最近活動。Project Issues 頁可透過 URL query 的 `view=list|board` 切換 List 與 Kanban，並保留 search、type、status、priority、assignee 與 labels filters。
+
+## Development demo data
+
+Demo seed 只允許在 `Development` environment 透過明確 command 執行。先透過 UI 註冊帳號，或使用既有 Admin bootstrap command 準備 owner，再執行：
+
+```powershell
+cd src/WEB_Demo.Api
+dotnet run -- seed-demo-data --owner-email owner@example.com
+```
+
+Command 會套用目前 migrations，建立 `WEB_Demo Development` Project、六個 Project labels，以及橫跨 Draft、Approved、InProgress、QA 與 Done 的示範 Issues。資料包含 assigned、overdue、comments 與 history，可直接展示 Dashboard 和 Kanban。
+
+- Command 可重複執行；固定 seed records 不會重複建立。
+- 額外建立的 Projects、members、labels、Issues、comments 與 history 不會被刪除。
+- 不會建立帳號、預設密碼或匿名 seed endpoint。
+- Production、CI、E2E 與一般 API 啟動不會自動寫入 demo data。
 
 ```powershell
 cd src/WEB_Demo.Client
@@ -59,6 +102,8 @@ Backend tests 位於 `tests/WEB_Demo.Api.Tests/`，使用 xUnit、FluentAssertio
 ## Playwright E2E
 
 E2E 需要 local PostgreSQL 可用，且目前 PostgreSQL 帳號必須具有 `CREATE DATABASE`、終止目標 database sessions 與 `DROP DATABASE` 權限。測試使用 Chromium：
+
+本機驗證原則：新增或修改 E2E spec 時至少執行該 spec 一次；若修改 runner、authentication helper、database lifecycle、global setup、Playwright config 或 Docker integration，則執行完整 E2E suite。未影響 E2E 的一般變更不需重跑整套，交由 CI 即可。
 
 ```powershell
 cd src/WEB_Demo.Client
@@ -142,6 +187,16 @@ Active changes 與 archived changes 以 OpenSpec CLI 和 `openspec/changes/archi
 - `Debug Full Stack` 可同時啟動 API 與 Vue client，停止時會清理兩個 processes。
 - 若新安裝的 `dotnet` 或 Node 無法找到，重新開啟 terminal 或 VS Code 以刷新 PATH。
 
+## 介面語系
+
+- 支援 `zh-TW` 與 `en`，無有效保存值時固定使用繁體中文。
+- 登入頁與 Topbar 可切換語系；選擇保存在 localStorage 的 `web_demo.locale`。
+- i18n messages 集中於 `src/WEB_Demo.Client/src/i18n/messages.ts`，新增 key 時必須保持中英文 key parity。
+- PrimeVue locale 與 `<html lang>` 由同一 locale controller 同步更新。
+- Project／Issue status、type、priority、role 與 permission key 僅翻譯顯示 label，API、route query 與 database value 維持不變。
+
+Development demo seed command 會建立並保留兩份獨立資料：英文 `WEB_Demo Development` 與繁體中文 `WEB_Demo 開發專案`。兩份資料使用不同 deterministic identifiers，可並存且重跑不會互相覆寫或刪除自訂資料。
+
 ## Validation Checklist
 
 提交行為變更前，依影響範圍執行：
@@ -183,8 +238,6 @@ Permission definitions are code-owned in `Authorization/AppPermissions.cs`; do n
 | `roles.read` | Read role directory and permission summaries |
 | `roles.manage` | Create, rename, and delete custom roles |
 | `permissions.manage` | Read the catalog and update Role–Permission mappings |
-| `todos.read` | Reserved for Todo read authorization |
-| `todos.manage` | Reserved for Todo mutations |
 
 `Admin` is the break-glass system role and always resolves the complete catalog. Use custom roles for least-privilege daily administration. Role–Permission changes update affected users' security stamps and revoke their access sessions and refresh families.
 

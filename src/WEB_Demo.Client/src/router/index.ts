@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router';
 import DashboardView from '../views/DashboardView.vue';
+import SpecAssistantView from '../views/SpecAssistantView.vue';
 import ProjectsView from '../views/ProjectsView.vue';
 import AdminUsersView from '../views/AdminUsersView.vue';
 import AdminRolesView from '../views/AdminRolesView.vue';
@@ -21,6 +22,7 @@ declare module 'vue-router' {
 export const routes: RouteRecordRaw[] = [
   { path: '/', redirect: '/dashboard' },
   { path: '/dashboard', name: 'dashboard', component: DashboardView, meta: { title: 'Dashboard' } },
+  { path: '/spec-assistant', name: 'spec-assistant', component: SpecAssistantView, meta: { title: 'Specification Assistant' } },
   { path: '/projects', name: 'projects', component: ProjectsView, meta: { title: 'Projects' } },
   { path: '/admin/users', name: 'users', component: AdminUsersView, meta: { title: 'Users', permission: 'users.read' } },
   { path: '/admin/roles', name: 'roles', component: AdminRolesView, meta: { title: 'Roles', permission: 'roles.read' } },
