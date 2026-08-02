@@ -1,19 +1,38 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import Button from 'primevue/button';
 import Message from 'primevue/message';
 import ProgressSpinner from 'primevue/progressspinner';
 import Tag from 'primevue/tag';
 import Textarea from 'primevue/textarea';
 import { useI18n } from 'vue-i18n';
-import { querySpecAssistant } from '../api/specAssistant';
-import type { SpecAssistantQueryResponse } from '../api/types';
+import { getSpecIndexStatus, querySpecAssistant, rebuildSpecIndex } from '../api/specAssistant';
+import type { SpecAssistantQueryResponse, SpecIndexStatus } from '../api/types';
 
 const { t } = useI18n();
 const question = ref('');
 const loading = ref(false);
 const error = ref('');
 const result = ref<SpecAssistantQueryResponse | null>(null);
+const indexStatus = ref<SpecIndexStatus | null>(null);
+const indexLoading = ref(false);
+const indexError = ref('');
+
+async function loadIndexStatus() {
+  indexError.value = '';
+  try { indexStatus.value = await getSpecIndexStatus(); }
+  catch { indexError.value = t('specAssistant.indexLoadFailed'); }
+}
+
+async function rebuildIndex() {
+  indexLoading.value = true;
+  indexError.value = '';
+  try { indexStatus.value = await rebuildSpecIndex(); }
+  catch { indexError.value = t('specAssistant.indexRebuildFailed'); }
+  finally { indexLoading.value = false; }
+}
+
+onMounted(loadIndexStatus);
 
 async function ask() {
   const value = question.value.trim();
@@ -45,6 +64,23 @@ async function ask() {
     </header>
 
     <Message severity="info" :closable="false">{{ t('specAssistant.phaseNote') }}</Message>
+
+    <section class="assistant-index-card">
+      <div>
+        <p class="eyebrow">{{ t('specAssistant.retrieval') }}</p>
+        <h2>{{ indexStatus?.retrievalMode ?? '—' }}</h2>
+      </div>
+      <dl v-if="indexStatus" class="assistant-index-details">
+        <div><dt>{{ t('specAssistant.indexStatus') }}</dt><dd>{{ indexStatus.status }}</dd></div>
+        <div><dt>{{ t('specAssistant.embeddingModel') }}</dt><dd>{{ indexStatus.model ?? '—' }}</dd></div>
+        <div><dt>{{ t('specAssistant.chunkCount') }}</dt><dd>{{ indexStatus.chunkCount }}</dd></div>
+        <div><dt>{{ t('specAssistant.builtAt') }}</dt><dd>{{ indexStatus.builtAt ? new Date(indexStatus.builtAt).toLocaleString() : '—' }}</dd></div>
+      </dl>
+      <Button v-if="indexStatus && indexStatus.retrievalMode !== 'Lexical'" icon="pi pi-refresh"
+        :label="t('specAssistant.rebuildIndex')" severity="secondary" :loading="indexLoading"
+        :disabled="indexLoading" @click="rebuildIndex" />
+      <Message v-if="indexError" severity="error" :closable="false">{{ indexError }}</Message>
+    </section>
 
     <form class="assistant-question-card" @submit.prevent="ask">
       <label for="spec-question">{{ t('specAssistant.question') }}</label>
@@ -86,6 +122,12 @@ async function ask() {
 <style scoped>
 .spec-assistant-workspace { display: grid; gap: 1rem; max-width: 960px; }
 .assistant-question-card, .assistant-answer-card { padding: 1.25rem; border: 1px solid var(--p-content-border-color); border-radius: 12px; background: var(--p-content-background); }
+.assistant-index-card { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 1rem; padding: 1rem 1.25rem; border: 1px solid var(--p-content-border-color); border-radius: 12px; background: var(--p-content-background); }
+.assistant-index-card h2 { margin: 0; }
+.assistant-index-details { display: flex; flex-wrap: wrap; gap: .75rem 1.5rem; margin: 0; }
+.assistant-index-details div { display: grid; gap: .2rem; }
+.assistant-index-details dt { color: var(--p-text-muted-color); font-size: .8rem; }
+.assistant-index-details dd { margin: 0; font-weight: 600; }
 .assistant-question-card { display: grid; gap: .75rem; }
 .assistant-question-card label, .assistant-answer-card h2 { font-weight: 700; }
 .assistant-actions, .assistant-error { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
@@ -94,4 +136,5 @@ async function ask() {
 .assistant-answer { white-space: pre-wrap; line-height: 1.7; }
 .assistant-tags { display: flex; flex-wrap: wrap; gap: .5rem; }
 .assistant-sources { padding-left: 1.25rem; overflow-wrap: anywhere; }
+@media (max-width: 720px) { .assistant-index-card { grid-template-columns: 1fr; } }
 </style>

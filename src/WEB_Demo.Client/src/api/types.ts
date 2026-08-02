@@ -164,6 +164,19 @@ export type SpecAssistantQueryResponse = {
   sources: string[];
 };
 
+export type SpecIndexStatus = {
+  retrievalMode: 'Hybrid' | 'Embedding' | 'Lexical';
+  status: 'Unbuilt' | 'Building' | 'Ready' | 'Unavailable' | 'NotApplicable';
+  model: string | null;
+  chunkCount: number;
+  builtAt: string | null;
+  store: 'PostgreSql' | 'Memory';
+  inserted: number;
+  updated: number;
+  deleted: number;
+  unchanged: number;
+};
+
 export type IssueHistoryInfo = {
   id: string;
   actorUserId: string;

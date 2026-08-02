@@ -18,10 +18,30 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<IssueComment> IssueComments => Set<IssueComment>();
     public DbSet<ProjectLabel> ProjectLabels => Set<ProjectLabel>();
     public DbSet<IssueLabel> IssueLabels => Set<IssueLabel>();
+    public DbSet<SpecVectorDocument> SpecVectorDocuments => Set<SpecVectorDocument>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
+        if (Database.ProviderName?.Contains("Npgsql", StringComparison.Ordinal) == true)
+        {
+            builder.HasPostgresExtension("vector");
+            builder.Entity<SpecVectorDocument>(entity =>
+            {
+                entity.ToTable("SpecVectorDocuments");
+                entity.HasKey(item => item.Id);
+                entity.Property(item => item.ChunkId).HasMaxLength(600).IsRequired();
+                entity.Property(item => item.Capability).HasMaxLength(200).IsRequired();
+                entity.Property(item => item.SourcePath).HasMaxLength(1000).IsRequired();
+                entity.Property(item => item.Content).HasMaxLength(12000).IsRequired();
+                entity.Property(item => item.ContentHash).HasMaxLength(64).IsRequired();
+                entity.Property(item => item.EmbeddingModel).HasMaxLength(200).IsRequired();
+                entity.Property(item => item.Embedding).HasColumnType("vector(1024)").IsRequired();
+                entity.HasIndex(item => new { item.ChunkId, item.EmbeddingModel }).IsUnique();
+                entity.HasIndex(item => item.Embedding).HasMethod("hnsw").HasOperators("vector_cosine_ops");
+            });
+        }
+        else builder.Ignore<SpecVectorDocument>();
 
         builder.Entity<RefreshToken>(entity =>
         {

@@ -41,6 +41,62 @@ dotnet run
 
 未設定模型時，應用程式仍會正常啟動；只有 `/api/spec-assistant/query` 在找到候選規格並需要模型回答時會回傳 `503 SPEC_ASSISTANT_UNAVAILABLE`。
 
+### Phase 2: Embedding semantic retrieval
+
+生成模型負責「根據候選規格回答」，Embedding 模型只負責「將文字轉為向量並找出語意相近段落」。兩者可以使用不同 endpoint 與模型。第二階段預設使用 `Hybrid` 模式，合併語意檢索、字面檢索與受控業務詞彙；向量保存在 API process memory，應用重啟後狀態回到 `Unbuilt`，首次查詢或手動重建會重新建立索引。
+
+未來使用 Ollama 時可設定：
+
+```powershell
+cd src/WEB_Demo.Api
+dotnet user-secrets set "SpecAssistant:RetrievalMode" "Hybrid"
+dotnet user-secrets set "SpecAssistant:EmbeddingBaseUrl" "http://localhost:11434/v1/"
+dotnet user-secrets set "SpecAssistant:EmbeddingModel" "your-embedding-model"
+```
+
+本機 Ollama 不需要 `SpecAssistant:EmbeddingApiKey`。若使用遠端 OpenAI-compatible embedding provider，再以 user secrets 設定：
+
+```powershell
+dotnet user-secrets set "SpecAssistant:EmbeddingApiKey" "your-embedding-api-key"
+```
+
+可調整的檢索參數包括 `EmbeddingBatchSize`、`MaxIndexedChunks`、`TopK` 與 `MinimumSimilarity`。開發時若尚未準備 Embedding provider，可暫時切回第一階段文字檢索：
+
+```powershell
+dotnet user-secrets set "SpecAssistant:RetrievalMode" "Lexical"
+```
+
+### 第三階段：PostgreSQL pgvector
+
+第三階段預設使用 `SpecAssistant:VectorStore=PostgreSql`，並將 `bge-m3` 的 1024 維向量持久化在既有 `web_demo` 資料庫。PostgreSQL server 必須先安裝 pgvector，並在資料庫啟用：
+
+```sql
+CREATE EXTENSION IF NOT EXISTS vector;
+```
+
+套用 migration：
+
+```powershell
+dotnet ef database update --project src/WEB_Demo.Api --startup-project src/WEB_Demo.Api
+```
+
+規格助理頁面的「同步規格」會比較 stable chunk ID 與 SHA-256 content hash，只為新增或變更 chunks 呼叫 Embedding，刪除已不存在的 rows，並保留未變更向量。API 重啟後會直接重用相同模型與維度的資料。
+
+`bge-m3` 必須設定 `SpecAssistant:EmbeddingDimension=1024`。更換成不同維度的模型前，需要新增相容 migration；不同模型或維度的資料不會混合查詢。
+
+需要回復記憶體索引時，可設定：
+
+```powershell
+dotnet user-secrets set "SpecAssistant:VectorStore" "Memory" --project src/WEB_Demo.Api
+```
+
+資料表可保留，回復模式不會修改既有 pgvector rows。
+
+索引 API：
+
+- `GET /api/spec-assistant/index`：查詢模式與索引狀態。
+- `POST /api/spec-assistant/index/rebuild`：重新讀取 OpenSpec 並原子替換索引；失敗時保留上一個有效 snapshot。
+
 認證預設使用 15 分鐘 access token 與 7 天固定到期 refresh token。Development 的 refresh cookie 因 HTTP only 不設 `Secure`；Production 一律設為 `Secure`，因此正式環境必須由 HTTPS 提供服務。Cookie 為 `HttpOnly`、`SameSite=Strict`，且 path 限制為 `/api/auth`。
 
 ## Backend

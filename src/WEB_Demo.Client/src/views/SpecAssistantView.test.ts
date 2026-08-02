@@ -6,11 +6,14 @@ import SpecAssistantView from './SpecAssistantView.vue';
 import { i18n } from '../i18n';
 import * as api from '../api/specAssistant';
 
-vi.mock('../api/specAssistant', () => ({ querySpecAssistant: vi.fn() }));
+vi.mock('../api/specAssistant', () => ({ querySpecAssistant: vi.fn(), getSpecIndexStatus: vi.fn(), rebuildSpecIndex: vi.fn() }));
 const wrappers: VueWrapper[] = [];
 
 describe('SpecAssistantView', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(api.getSpecIndexStatus).mockResolvedValue({ retrievalMode: 'Hybrid', status: 'Ready', model: 'bge-m3', chunkCount: 42, builtAt: '2026-08-02T00:00:00Z', store: 'PostgreSql', inserted: 0, updated: 0, deleted: 0, unchanged: 0 });
+  });
   afterEach(() => wrappers.splice(0).forEach(wrapper => wrapper.unmount()));
 
   function mountView() {
@@ -34,6 +37,18 @@ describe('SpecAssistantView', () => {
     await flushPromises();
     expect(wrapper.text()).toContain('Use issue-management.');
     expect(wrapper.text()).toContain('openspec/specs/issue-management/spec.md');
+  });
+
+  it('shows persistent Hybrid index status and synchronizes it', async () => {
+    vi.mocked(api.rebuildSpecIndex).mockResolvedValue({ retrievalMode: 'Hybrid', status: 'Ready', model: 'bge-m3', chunkCount: 43, builtAt: '2026-08-02T01:00:00Z', store: 'PostgreSql', inserted: 1, updated: 0, deleted: 0, unchanged: 42 });
+    const wrapper = mountView();
+    await flushPromises();
+    expect(wrapper.text()).toContain('bge-m3');
+    expect(wrapper.text()).toContain('42');
+    await wrapper.findAll('button').find(button => button.text().includes('Sync specifications'))!.trigger('click');
+    await flushPromises();
+    expect(api.rebuildSpecIndex).toHaveBeenCalledOnce();
+    expect(wrapper.text()).toContain('43');
   });
 
   it('shows a recoverable error when the query fails', async () => {

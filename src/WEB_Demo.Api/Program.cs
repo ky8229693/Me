@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Pgvector.EntityFrameworkCore;
 using WEB_Demo.Api.Authorization;
 using WEB_Demo.Api.Bootstrap;
 using WEB_Demo.Api.Data;
@@ -40,7 +41,7 @@ builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<IJwtSessionRegistry, InMemoryJwtSessionRegistry>();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"), npgsql => npgsql.UseVector()));
 builder.Services
     .AddIdentityCore<IdentityUser>(options =>
     {
@@ -130,7 +131,15 @@ builder.Services.AddScoped<ProjectAdministrationService>();
 builder.Services.AddScoped<IssueAdministrationService>();
 builder.Services.AddScoped<ProjectLabelAdministrationService>();
 builder.Services.AddScoped<DashboardService>();
-builder.Services.AddScoped<ISpecDocumentRetriever, LexicalSpecDocumentRetriever>();
+builder.Services.AddSingleton<ISpecDocumentSource, OpenSpecDocumentSource>();
+builder.Services.AddHttpClient(nameof(OpenAiCompatibleEmbeddingClient));
+builder.Services.AddSingleton<IEmbeddingClient, OpenAiCompatibleEmbeddingClient>();
+builder.Services.AddSingleton<ISpecVectorIndex, InMemorySpecVectorIndex>();
+builder.Services.AddScoped<IPersistentSpecVectorStore, PostgresSpecVectorStore>();
+builder.Services.AddScoped<LexicalSpecDocumentRetriever>();
+builder.Services.AddScoped<EmbeddingSpecDocumentRetriever>();
+builder.Services.AddScoped<PostgresEmbeddingSpecDocumentRetriever>();
+builder.Services.AddScoped<ISpecDocumentRetriever, ConfiguredSpecDocumentRetriever>();
 builder.Services.AddHttpClient<ISpecAssistantClient, OpenAiCompatibleSpecAssistantClient>();
 builder.Services.AddScoped<E2EDatabaseLifecycleService>();
 builder.Services.AddHealthChecks();

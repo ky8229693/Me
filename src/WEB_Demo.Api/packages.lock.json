@@ -46,6 +46,16 @@
           "Npgsql": "8.0.6"
         }
       },
+      "Pgvector.EntityFrameworkCore": {
+        "type": "Direct",
+        "requested": "[0.2.2, )",
+        "resolved": "0.2.2",
+        "contentHash": "U4C48O+f31y7lWlUY+fsZrOZAvzI8rCsQb/sEWF3MfGYX/153uQingO2/8YoXeLGx00Wl9na8zl89gehXtMbFg==",
+        "dependencies": {
+          "Npgsql.EntityFrameworkCore.PostgreSQL": "8.0.0",
+          "Pgvector": "0.3.1"
+        }
+      },
       "Swashbuckle.AspNetCore": {
         "type": "Direct",
         "requested": "[6.6.2, )",
@@ -329,6 +339,14 @@
         "contentHash": "KaS6CY5kY2Sd0P00MSeFcOI3t2DiQ4UWG8AuRpVOUeDWITOKfoEEG91DP3cmT6aerixPkjwKgXxnpDxIkDpO6g==",
         "dependencies": {
           "Microsoft.Extensions.Logging.Abstractions": "8.0.0"
+        }
+      },
+      "Pgvector": {
+        "type": "Transitive",
+        "resolved": "0.3.1",
+        "contentHash": "XeuF5F5krjjv9/Mlt9vtl5Sd7B6ps82XhsA98qP5G6KAjL2bDPr+nvXTTXrJoKiwdE+R5VXoq1t0hWFkgbMyZw==",
+        "dependencies": {
+          "Npgsql": "8.0.3"
         }
       },
       "Swashbuckle.AspNetCore.Swagger": {
