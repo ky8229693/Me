@@ -298,3 +298,28 @@ Permission definitions are code-owned in `Authorization/AppPermissions.cs`; do n
 `Admin` is the break-glass system role and always resolves the complete catalog. Use custom roles for least-privilege daily administration. Role–Permission changes update affected users' security stamps and revoke their access sessions and refresh families.
 
 Deployments that introduce Permission policies must apply the EF migration before startup. Startup applies pending relational migrations and synchronizes the fixed catalog. Existing access tokens without Permission claims fail closed on Permission-protected endpoints; users must refresh or sign in again.
+# Semantic Kernel 小助手
+
+全域小助手使用 `SpecAssistant` 區段的 OpenAI 相容設定：`BaseUrl`、`Model` 與
+`ApiKey`。建議透過 .NET User Secrets 或部署環境變數提供金鑰，不要提交到版本庫。
+
+小助手的對話、訊息、頁面情境與待確認動作儲存在 PostgreSQL。Semantic Kernel
+只能呼叫查詢或「準備動作」工具；建立專案與議題必須由使用者按下確認後，才會透過
+既有的 `ProjectAdministrationService`／`IssueAdministrationService` 執行並重新檢查權限。
+每段對話同時只允許一個待確認動作，預設 15 分鐘到期，確認採冪等處理。
+
+可用下列設定限制模型工具迴圈與輸出大小：
+
+```json
+{
+  "SpecAssistant": {
+    "AssistantMaxToolCalls": 8,
+    "AssistantHistoryMessages": 30,
+    "AssistantPendingActionMinutes": 15,
+    "AssistantMaxToolResultCharacters": 8000
+  }
+}
+```
+
+舊的 `/api/spec-assistant/*` 查規格與 project draft API 暫時保留，若新助手有問題，
+前端可退回既有規格助手頁面；移除舊 API 應另開變更處理。

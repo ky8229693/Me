@@ -197,3 +197,22 @@ export type IssueCommentInfo = {
   content: string;
   createdAt: string;
 };
+
+export type AssistantContext = { projectId: string | null; issueId: string | null };
+export type AssistantMessage = { id: string; role: 'User' | 'Assistant' | 'Tool'; content: string; createdAt: string };
+export type AssistantPendingAction = {
+  id: string; type: 'CreateProject' | 'CreateIssue'; status: string;
+  preview: Record<string, unknown>; expiresAt: string; result: Record<string, unknown> | null;
+};
+export type AssistantConversationSummary = {
+  id: string; title: string | null; context: AssistantContext; createdAt: string; updatedAt: string;
+};
+export type AssistantConversation = AssistantConversationSummary & {
+  messages: AssistantMessage[]; pendingAction: AssistantPendingAction | null;
+};
+export type AssistantTurn = {
+  message: AssistantMessage; pendingAction: AssistantPendingAction | null; sources: string[]; state: string;
+};
+export type AssistantConfirmation = {
+  action: AssistantPendingAction; message: string; resource: unknown;
+};

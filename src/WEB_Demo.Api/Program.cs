@@ -133,6 +133,9 @@ builder.Services.AddScoped<ProjectAdministrationService>();
 builder.Services.AddScoped<IssueAdministrationService>();
 builder.Services.AddScoped<ProjectLabelAdministrationService>();
 builder.Services.AddScoped<DashboardService>();
+builder.Services.AddScoped<AssistantConversationService>();
+builder.Services.AddScoped<AssistantOrchestrationService>();
+builder.Services.AddScoped<AssistantConfirmationService>();
 builder.Services.AddSingleton<ISpecDocumentSource, OpenSpecDocumentSource>();
 builder.Services.AddHttpClient(nameof(OpenAiCompatibleEmbeddingClient));
 builder.Services.AddSingleton<IEmbeddingClient, OpenAiCompatibleEmbeddingClient>();
@@ -288,6 +291,7 @@ app.MapProjectEndpoints();
 app.MapIssueEndpoints();
 app.MapDashboardEndpoints();
 app.MapSpecAssistantEndpoints();
+app.MapAssistantEndpoints();
 
 app.Run();
 

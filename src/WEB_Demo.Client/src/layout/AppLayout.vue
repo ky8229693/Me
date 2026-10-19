@@ -6,11 +6,17 @@ import AppTopbar from './AppTopbar.vue';
 import type { MenuGroup } from './types';
 import { hasPermission, permissions } from '../auth/permissions';
 import { useI18n } from 'vue-i18n';
+import Drawer from 'primevue/drawer';
+import AssistantPanel from '../features/assistant/AssistantPanel.vue';
+import { useAssistantState } from '../features/assistant/assistantState';
+import { useRoute } from 'vue-router';
 
 const props = defineProps<{
   user: AuthUser;
 }>();
 const { t } = useI18n();
+const assistant = useAssistantState();
+const route = useRoute();
 
 const emit = defineEmits<{
   logout: [];
@@ -43,6 +49,15 @@ function toggleSidebar() {
 function closeSidebar() {
   isSidebarOpen.value = false;
 }
+
+async function openAssistant() {
+  await assistant.open();
+  const projectId = typeof route.params.projectId === 'string' ? route.params.projectId : null;
+  const issueId = typeof route.params.issueId === 'string' ? route.params.issueId : null;
+  if (projectId) {
+    try { await assistant.setContext(projectId, issueId); } catch { /* API safely rejects unauthorized context. */ }
+  }
+}
 </script>
 
 <template>
@@ -56,9 +71,15 @@ function closeSidebar() {
     <AppTopbar
       :user="user"
       @toggle-sidebar="toggleSidebar"
+      @open-assistant="openAssistant"
       @refresh="emit('refresh')"
       @logout="emit('logout')"
     />
+
+    <Drawer v-model:visible="assistant.visible.value" position="right" header="AI 小助手"
+      class="assistant-drawer" :dismissable="true">
+      <AssistantPanel />
+    </Drawer>
 
     <AppSidebar :groups="menuGroups" @close="closeSidebar" />
 
@@ -75,3 +96,9 @@ function closeSidebar() {
     </main>
   </div>
 </template>
+
+<style>
+.assistant-drawer { width: min(30rem, 100vw) !important; }
+.assistant-drawer .p-drawer-content { padding-top: .25rem; }
+@media (max-width: 640px) { .assistant-drawer { width: 100vw !important; } }
+</style>

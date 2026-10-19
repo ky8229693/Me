@@ -22,4 +22,8 @@ public sealed class SpecAssistantOptions
     public int MaxQuestionLength { get; init; } = 1000;
     public int MaxCandidateChunks { get; init; } = 6;
     public int MaxContextCharacters { get; init; } = 12000;
+    public int AssistantMaxToolCalls { get; init; } = 8;
+    public int AssistantHistoryMessages { get; init; } = 30;
+    public int AssistantPendingActionMinutes { get; init; } = 15;
+    public int AssistantMaxToolResultCharacters { get; init; } = 8000;
 }

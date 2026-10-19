@@ -12,6 +12,7 @@ defineProps<{
 
 const emit = defineEmits<{
   toggleSidebar: [];
+  openAssistant: [];
   refresh: [];
   logout: [];
 }>();
@@ -37,6 +38,7 @@ const emit = defineEmits<{
     </div>
 
     <div class="layout-topbar-actions">
+      <Button icon="pi pi-sparkles" label="小助手" text :aria-label="'開啟 AI 小助手'" @click="emit('openAssistant')" />
       <Button icon="pi pi-refresh" text rounded :aria-label="t('layout.refreshDashboard')" @click="emit('refresh')" />
       <LanguageSelect />
       <div class="auth-user">

@@ -19,6 +19,9 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<ProjectLabel> ProjectLabels => Set<ProjectLabel>();
     public DbSet<IssueLabel> IssueLabels => Set<IssueLabel>();
     public DbSet<SpecVectorDocument> SpecVectorDocuments => Set<SpecVectorDocument>();
+    public DbSet<AssistantConversation> AssistantConversations => Set<AssistantConversation>();
+    public DbSet<AssistantMessage> AssistantMessages => Set<AssistantMessage>();
+    public DbSet<AssistantPendingAction> AssistantPendingActions => Set<AssistantPendingAction>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -42,6 +45,49 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
             });
         }
         else builder.Ignore<SpecVectorDocument>();
+
+        builder.Entity<AssistantConversation>(entity =>
+        {
+            entity.ToTable("AssistantConversations");
+            entity.HasKey(item => item.Id);
+            entity.Property(item => item.UserId).HasMaxLength(450).IsRequired();
+            entity.Property(item => item.Title).HasMaxLength(120);
+            entity.HasIndex(item => new { item.UserId, item.UpdatedAt });
+            entity.HasOne<Microsoft.AspNetCore.Identity.IdentityUser>().WithMany()
+                .HasForeignKey(item => item.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<AssistantMessage>(entity =>
+        {
+            entity.ToTable("AssistantMessages");
+            entity.HasKey(item => item.Id);
+            entity.Property(item => item.Role).HasConversion<string>().HasMaxLength(20).IsRequired();
+            entity.Property(item => item.Content).HasMaxLength(16000).IsRequired();
+            entity.Property(item => item.MetadataJson).HasColumnType("jsonb");
+            entity.HasIndex(item => new { item.ConversationId, item.CreatedAt });
+            entity.HasOne(item => item.Conversation).WithMany(item => item.Messages)
+                .HasForeignKey(item => item.ConversationId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<AssistantPendingAction>(entity =>
+        {
+            entity.ToTable("AssistantPendingActions");
+            entity.HasKey(item => item.Id);
+            entity.Property(item => item.UserId).HasMaxLength(450).IsRequired();
+            entity.Property(item => item.Type).HasConversion<string>().HasMaxLength(30).IsRequired();
+            entity.Property(item => item.Status).HasConversion<string>().HasMaxLength(20).IsRequired();
+            entity.Property(item => item.PayloadJson).HasColumnType("jsonb").IsRequired();
+            entity.Property(item => item.PreviewJson).HasColumnType("jsonb").IsRequired();
+            entity.Property(item => item.ResultJson).HasColumnType("jsonb");
+            entity.Property(item => item.IdempotencyKey).HasMaxLength(100).IsRequired();
+            entity.Property(item => item.Version).IsRowVersion();
+            entity.HasIndex(item => item.IdempotencyKey).IsUnique();
+            entity.HasIndex(item => new { item.ConversationId, item.Status });
+            entity.HasIndex(item => item.ConversationId).IsUnique()
+                .HasFilter("\"Status\" IN ('Pending', 'Processing')");
+            entity.HasOne(item => item.Conversation).WithMany(item => item.PendingActions)
+                .HasForeignKey(item => item.ConversationId).OnDelete(DeleteBehavior.Cascade);
+        });
 
         builder.Entity<RefreshToken>(entity =>
         {

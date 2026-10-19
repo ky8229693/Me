@@ -8,6 +8,7 @@ import Textarea from 'primevue/textarea';
 import { useI18n } from 'vue-i18n';
 import { confirmProjectDraft, createProjectDraft, getSpecIndexStatus, querySpecAssistant, rebuildSpecIndex } from '../api/specAssistant';
 import type { ProjectDraft, ProjectInfo, SpecAssistantQueryResponse, SpecIndexStatus } from '../api/types';
+import AssistantPanel from '../features/assistant/AssistantPanel.vue';
 
 const { t } = useI18n();
 const question = ref('');
@@ -148,11 +149,22 @@ async function confirmProject() {
       </ul>
       <p v-else class="muted">{{ t('specAssistant.noSources') }}</p>
     </article>
+
+    <section class="assistant-workspace-card">
+      <div>
+        <p class="eyebrow">AI Assistant</p>
+        <h2>小助手工作區</h2>
+        <p class="muted">此處與右上角小助手共用同一段對話。</p>
+      </div>
+      <AssistantPanel />
+    </section>
   </section>
 </template>
 
 <style scoped>
 .spec-assistant-workspace { display: grid; gap: 1rem; width: 100%; max-width: none; }
+.assistant-workspace-card { height: min(44rem, 72vh); display: grid; grid-template-rows: auto 1fr; gap: 1rem; padding: 1.25rem; border: 1px solid var(--p-content-border-color); border-radius: 12px; background: var(--p-content-background); }
+.assistant-workspace-card h2, .assistant-workspace-card p { margin-top: 0; }
 .assistant-question-card, .assistant-answer-card { padding: 1.25rem; border: 1px solid var(--p-content-border-color); border-radius: 12px; background: var(--p-content-background); }
 .assistant-index-card { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 1rem; padding: 1rem 1.25rem; border: 1px solid var(--p-content-border-color); border-radius: 12px; background: var(--p-content-background); }
 .assistant-index-card h2 { margin: 0; }
