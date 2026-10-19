@@ -17,6 +17,7 @@ public sealed class AssistantTools(
     IPermissionResolver permissions)
 {
     public List<string> Sources { get; } = [];
+    public AssistantPreparationOutcome? PreparationOutcome { get; private set; }
 
     [KernelFunction("search_specifications")]
     [Description("Search product specifications and operating procedures. Use for questions about supported behavior or workflow.")]
@@ -55,18 +56,18 @@ public sealed class AssistantTools(
         var user = await users.FindByIdAsync(userId);
         if (user is null || !(await permissions.GetForUserAsync(user)).Contains(
                 AppPermissions.ProjectsCreate, StringComparer.Ordinal))
-            return JsonSerializer.Serialize(new { state = "forbidden", message = "沒有建立專案的權限。" });
+            return Preparation("forbidden", "沒有建立專案的權限。");
         if (string.IsNullOrWhiteSpace(name))
-            return JsonSerializer.Serialize(new { state = "missing_fields", missingFields = new[] { "name" } });
+            return Preparation("missing_fields", missingFields: ["name"]);
         var normalized = name.Trim();
         if (normalized.Length is < 2 or > 100)
-            return JsonSerializer.Serialize(new { state = "validation_error", message = "專案名稱需為 2 到 100 個字元。" });
+            return Preparation("validation_error", "專案名稱需為 2 到 100 個字元。");
         if (description?.Length > 2000)
-            return JsonSerializer.Serialize(new { state = "validation_error", message = "專案說明不可超過 2000 個字元。" });
+            return Preparation("validation_error", "專案說明不可超過 2000 個字元。");
         var payload = new CreateProjectActionPayload(normalized, string.IsNullOrWhiteSpace(description) ? null : description.Trim());
         var action = await conversations.PrepareAsync(conversation, AssistantPendingActionType.CreateProject,
             payload, payload, cancellationToken);
-        return JsonSerializer.Serialize(new { state = "confirmation_required", action });
+        return Preparation("confirmation_required", action: action);
     }
 
     [KernelFunction("prepare_issue_creation")]
@@ -86,18 +87,18 @@ public sealed class AssistantTools(
         if (resolvedProjectId is null) missing.Add("projectId");
         if (string.IsNullOrWhiteSpace(title)) missing.Add("title");
         if (missing.Count > 0)
-            return JsonSerializer.Serialize(new { state = "missing_fields", missingFields = missing });
+            return Preparation("missing_fields", missingFields: missing);
         var project = await projects.GetAsync(resolvedProjectId!.Value, userId);
         if (project.Status != AdministrationResultStatus.Success)
-            return JsonSerializer.Serialize(new { state = "not_found", message = "找不到可存取的專案。" });
+            return Preparation("not_found", "找不到可存取的專案。");
         if (!Enum.TryParse<IssueType>(type, true, out _) || !Enum.TryParse<IssuePriority>(priority, true, out _))
-            return JsonSerializer.Serialize(new { state = "validation_error", message = "議題類型或優先順序無效。" });
+            return Preparation("validation_error", "議題類型或優先順序無效。");
         var payload = new CreateIssueActionPayload(resolvedProjectId.Value, title!.Trim(),
             string.IsNullOrWhiteSpace(description) ? null : description.Trim(), type, priority,
             string.IsNullOrWhiteSpace(assigneeUserId) ? null : assigneeUserId, dueDate);
         var action = await conversations.PrepareAsync(conversation, AssistantPendingActionType.CreateIssue,
             payload, payload, cancellationToken);
-        return JsonSerializer.Serialize(new { state = "confirmation_required", action });
+        return Preparation("confirmation_required", action: action);
     }
 
     [KernelFunction("search_assignable_users")]
@@ -117,4 +118,15 @@ public sealed class AssistantTools(
             matches
         });
     }
+
+    private string Preparation(string state, string? message = null,
+        IReadOnlyCollection<string>? missingFields = null, AssistantPendingActionInfo? action = null)
+    {
+        PreparationOutcome = new AssistantPreparationOutcome(state, message, missingFields ?? [], action);
+        return JsonSerializer.Serialize(new { state, message, missingFields, action });
+    }
 }
+
+public sealed record AssistantPreparationOutcome(
+    string State, string? Message, IReadOnlyCollection<string> MissingFields,
+    AssistantPendingActionInfo? Action);

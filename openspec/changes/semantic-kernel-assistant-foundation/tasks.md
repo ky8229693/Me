@@ -30,7 +30,7 @@
 - [x] 5.1 Add typed frontend conversation, message, context, pending-action, confirmation, and tool-state API contracts
 - [x] 5.2 Add a Topbar assistant trigger and AppLayout-owned PrimeVue Drawer with responsive full-width mobile behavior and accessible focus management
 - [x] 5.3 Implement shared assistant conversation state so Drawer close, navigation, refresh, and Workspace transitions preserve the active conversation
-- [ ] 5.4 Render page context, tool activity, follow-up questions, validated preview cards, confirm／cancel controls, errors, and authoritative completion results
+- [x] 5.4 Render page context, tool activity, follow-up questions, validated preview cards, confirm／cancel controls, errors, and authoritative completion results
 - [x] 5.5 Upgrade the existing Spec Assistant route into the full Assistant Workspace while retaining RAG sources and index controls
 - [ ] 5.6 Add localized Traditional Chinese and English assistant, accessibility, confirmation, and error copy
 

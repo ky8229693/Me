@@ -29,18 +29,18 @@ export function useAssistantState() {
   }
 
   async function send(text: string) {
-    const active = await ensureConversation();
-    if (!active) return;
     loading.value = true; error.value = '';
-    const optimistic = { id: crypto.randomUUID(), role: 'User' as const, content: text, createdAt: new Date().toISOString() };
-    active.messages.push(optimistic);
     try {
+      const active = await ensureConversation();
+      if (!active) return;
+      const optimistic = { id: crypto.randomUUID(), role: 'User' as const, content: text, createdAt: new Date().toISOString() };
+      active.messages.push(optimistic);
       const turn = await sendAssistantMessage(active.id, text);
       if (turn) {
         active.messages.push(turn.message);
         active.pendingAction = turn.pendingAction;
       }
-    } catch { error.value = '小助手目前無法回覆，請稍後再試。'; }
+    } catch { error.value = '小助手目前無法回覆；這次沒有執行任何操作，請再試一次。'; }
     finally { loading.value = false; }
   }
 

@@ -46,6 +46,9 @@ async function submit() {
         </div>
       </article>
     </div>
+    <Message v-if="assistant.loading.value" severity="info" :closable="false" class="assistant-tool-activity">
+      <span><i class="pi pi-spin pi-spinner"></i> 正在分析並執行必要工具，完成前不會建立資料…</span>
+    </Message>
     <Message v-if="assistant.error.value" severity="error" :closable="false">{{ assistant.error.value }}</Message>
     <form class="assistant-composer" @submit.prevent="submit">
       <Textarea v-model="input" rows="3" maxlength="1000" placeholder="輸入訊息，例如：建立一個官網改版專案" fluid
@@ -70,6 +73,7 @@ async function submit() {
 .assistant-preview dt { color: var(--p-text-muted-color); }
 .assistant-preview dd { margin: 0; overflow-wrap: anywhere; }
 .assistant-preview-actions, .assistant-composer > div { display: flex; align-items: center; justify-content: flex-end; gap: .5rem; }
+.assistant-tool-activity span { display: flex; align-items: center; gap: .5rem; }
 .assistant-composer { display: grid; gap: .5rem; }
 .assistant-composer small { margin-right: auto; color: var(--p-text-muted-color); }
 </style>
