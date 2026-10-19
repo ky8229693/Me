@@ -164,6 +164,8 @@ export type SpecAssistantQueryResponse = {
   sources: string[];
 };
 
+export type ProjectDraft = { id: string; name: string; description: string | null; expiresAt: string };
+
 export type SpecIndexStatus = {
   retrievalMode: 'Hybrid' | 'Embedding' | 'Lexical';
   status: 'Unbuilt' | 'Building' | 'Ready' | 'Unavailable' | 'NotApplicable';

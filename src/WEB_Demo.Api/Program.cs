@@ -38,6 +38,8 @@ builder.Services.AddOptions<JwtOptions>()
     .Validate(options => !string.IsNullOrWhiteSpace(options.RefreshCookieName), "RefreshCookieName is required.")
     .ValidateOnStart();
 builder.Services.AddMemoryCache();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<IProjectDraftStore, InMemoryProjectDraftStore>();
 builder.Services.AddSingleton<IJwtSessionRegistry, InMemoryJwtSessionRegistry>();
 
 builder.Services.AddDbContext<AppDbContext>(options =>

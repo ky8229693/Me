@@ -2,6 +2,12 @@ namespace WEB_Demo.Api.Models;
 
 public sealed record SpecAssistantQueryRequest(string? Question);
 
+public sealed record ProjectDraftRequest(string? Prompt);
+
+public sealed record ProjectDraftFields(string Name, string? Description);
+
+public sealed record ProjectDraftResponse(Guid Id, string Name, string? Description, DateTimeOffset ExpiresAt);
+
 public sealed record SpecAssistantQueryResponse(
     string Answer,
     IReadOnlyList<string> RelatedSpecs,

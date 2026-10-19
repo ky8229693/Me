@@ -5,6 +5,7 @@ namespace WEB_Demo.Api.Services;
 public interface ISpecAssistantClient
 {
     Task<string> AnswerAsync(string question, IReadOnlyList<SpecDocumentChunk> context, CancellationToken cancellationToken = default);
+    Task<ProjectDraftFields> CreateProjectDraftAsync(string prompt, CancellationToken cancellationToken = default);
 }
 
 public sealed class SpecAssistantUnavailableException : Exception

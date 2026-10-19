@@ -6,8 +6,8 @@ import ProgressSpinner from 'primevue/progressspinner';
 import Tag from 'primevue/tag';
 import Textarea from 'primevue/textarea';
 import { useI18n } from 'vue-i18n';
-import { getSpecIndexStatus, querySpecAssistant, rebuildSpecIndex } from '../api/specAssistant';
-import type { SpecAssistantQueryResponse, SpecIndexStatus } from '../api/types';
+import { confirmProjectDraft, createProjectDraft, getSpecIndexStatus, querySpecAssistant, rebuildSpecIndex } from '../api/specAssistant';
+import type { ProjectDraft, ProjectInfo, SpecAssistantQueryResponse, SpecIndexStatus } from '../api/types';
 
 const { t } = useI18n();
 const question = ref('');
@@ -17,6 +17,9 @@ const result = ref<SpecAssistantQueryResponse | null>(null);
 const indexStatus = ref<SpecIndexStatus | null>(null);
 const indexLoading = ref(false);
 const indexError = ref('');
+const draft = ref<ProjectDraft | null>(null);
+const createdProject = ref<ProjectInfo | null>(null);
+const confirming = ref(false);
 
 async function loadIndexStatus() {
   indexError.value = '';
@@ -50,6 +53,23 @@ async function ask() {
   } finally {
     loading.value = false;
   }
+}
+
+async function prepareProject() {
+  const value = question.value.trim();
+  if (!value) { error.value = t('specAssistant.required'); return; }
+  loading.value = true; error.value = ''; result.value = null; createdProject.value = null;
+  try { draft.value = await createProjectDraft(value); }
+  catch { error.value = t('specAssistant.draftFailed'); }
+  finally { loading.value = false; }
+}
+
+async function confirmProject() {
+  if (!draft.value) return;
+  confirming.value = true; error.value = '';
+  try { createdProject.value = await confirmProjectDraft(draft.value.id); draft.value = null; }
+  catch { error.value = t('specAssistant.confirmFailed'); }
+  finally { confirming.value = false; }
 }
 </script>
 
@@ -88,7 +108,10 @@ async function ask() {
         :placeholder="t('specAssistant.placeholder')" :disabled="loading" fluid />
       <div class="assistant-actions">
         <small>{{ question.length }} / 1000</small>
-        <Button type="submit" icon="pi pi-send" :label="t('specAssistant.ask')" :loading="loading" :disabled="loading" />
+        <div class="assistant-buttons">
+          <Button type="button" icon="pi pi-folder-plus" :label="t('specAssistant.prepareProject')" severity="secondary" :disabled="loading" @click="prepareProject" />
+          <Button type="submit" icon="pi pi-send" :label="t('specAssistant.ask')" :loading="loading" :disabled="loading" />
+        </div>
       </div>
     </form>
 
@@ -100,6 +123,15 @@ async function ask() {
     <Message v-else-if="error" severity="error">
       <div class="assistant-error"><span>{{ error }}</span><Button :label="t('common.retry')" size="small" @click="ask" /></div>
     </Message>
+
+    <article v-if="draft" class="assistant-answer-card project-draft-card">
+      <h2>{{ t('specAssistant.projectDraft') }}</h2>
+      <dl><div><dt>{{ t('common.name') }}</dt><dd>{{ draft.name }}</dd></div><div><dt>{{ t('common.description') }}</dt><dd>{{ draft.description || '—' }}</dd></div></dl>
+      <small>{{ t('specAssistant.draftExpires', { time: new Date(draft.expiresAt).toLocaleTimeString() }) }}</small>
+      <div class="assistant-buttons"><Button :label="t('common.cancel')" severity="secondary" @click="draft = null"/><Button :label="t('specAssistant.confirmCreate')" icon="pi pi-check" :loading="confirming" @click="confirmProject"/></div>
+    </article>
+
+    <Message v-if="createdProject" severity="success" :closable="false">{{ t('specAssistant.projectCreated', { name: createdProject.name }) }}</Message>
 
     <article v-else-if="result" class="assistant-answer-card">
       <h2>{{ t('specAssistant.answer') }}</h2>
@@ -120,7 +152,7 @@ async function ask() {
 </template>
 
 <style scoped>
-.spec-assistant-workspace { display: grid; gap: 1rem; max-width: 960px; }
+.spec-assistant-workspace { display: grid; gap: 1rem; width: 100%; max-width: none; }
 .assistant-question-card, .assistant-answer-card { padding: 1.25rem; border: 1px solid var(--p-content-border-color); border-radius: 12px; background: var(--p-content-background); }
 .assistant-index-card { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 1rem; padding: 1rem 1.25rem; border: 1px solid var(--p-content-border-color); border-radius: 12px; background: var(--p-content-background); }
 .assistant-index-card h2 { margin: 0; }
@@ -131,6 +163,11 @@ async function ask() {
 .assistant-question-card { display: grid; gap: .75rem; }
 .assistant-question-card label, .assistant-answer-card h2 { font-weight: 700; }
 .assistant-actions, .assistant-error { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+.assistant-buttons { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: .5rem; }
+.project-draft-card dl { display: grid; gap: .75rem; }
+.project-draft-card dl div { display: grid; gap: .25rem; }
+.project-draft-card dt { color: var(--p-text-muted-color); }
+.project-draft-card dd { margin: 0; white-space: pre-wrap; }
 .assistant-loading { display: flex; align-items: center; justify-content: center; gap: 1rem; padding: 2rem; }
 .assistant-loading :deep(.p-progressspinner) { width: 2rem; height: 2rem; }
 .assistant-answer { white-space: pre-wrap; line-height: 1.7; }

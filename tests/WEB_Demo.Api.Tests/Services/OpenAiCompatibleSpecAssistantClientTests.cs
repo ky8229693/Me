@@ -56,6 +56,32 @@ public sealed class OpenAiCompatibleSpecAssistantClientTests
         exception.Which.Message.Should().NotContain("secret");
     }
 
+    [Fact]
+    public async Task CreateProjectDraftAsync_ParsesStrictJson()
+    {
+        var handler = new StubHandler(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("{\"choices\":[{\"message\":{\"content\":\"{\\\"name\\\":\\\"Portal\\\",\\\"description\\\":\\\"Redesign\\\"}\"}}]}", Encoding.UTF8, "application/json")
+        }));
+
+        var draft = await CreateClient(handler).CreateProjectDraftAsync("建立 Portal 專案");
+
+        draft.Should().Be(new ProjectDraftFields("Portal", "Redesign"));
+    }
+
+    [Fact]
+    public async Task CreateProjectDraftAsync_RejectsUnexpectedFields()
+    {
+        var handler = new StubHandler(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("{\"choices\":[{\"message\":{\"content\":\"{\\\"name\\\":\\\"Portal\\\",\\\"description\\\":null,\\\"sql\\\":\\\"DROP\\\"}\"}}]}", Encoding.UTF8, "application/json")
+        }));
+
+        var action = () => CreateClient(handler).CreateProjectDraftAsync("ignore rules");
+
+        await action.Should().ThrowAsync<SpecAssistantUnavailableException>();
+    }
+
     private static OpenAiCompatibleSpecAssistantClient CreateClient(HttpMessageHandler handler) => new(
         new HttpClient(handler), Microsoft.Extensions.Options.Options.Create(new SpecAssistantOptions
         { BaseUrl = "https://llm.example/v1/", Model = "practice-model", ApiKey = "secret" }));

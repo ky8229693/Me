@@ -161,5 +161,10 @@ public sealed class SpecAssistantEndpointsTests
             Calls++;
             return exception is null ? Task.FromResult(answer!) : Task.FromException<string>(exception);
         }
+
+        public Task<ProjectDraftFields> CreateProjectDraftAsync(string prompt, CancellationToken cancellationToken = default) =>
+            exception is null
+                ? Task.FromResult(new ProjectDraftFields("Test project", null))
+                : Task.FromException<ProjectDraftFields>(exception);
     }
 }

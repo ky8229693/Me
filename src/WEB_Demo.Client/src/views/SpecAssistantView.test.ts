@@ -6,7 +6,7 @@ import SpecAssistantView from './SpecAssistantView.vue';
 import { i18n } from '../i18n';
 import * as api from '../api/specAssistant';
 
-vi.mock('../api/specAssistant', () => ({ querySpecAssistant: vi.fn(), getSpecIndexStatus: vi.fn(), rebuildSpecIndex: vi.fn() }));
+vi.mock('../api/specAssistant', () => ({ querySpecAssistant: vi.fn(), getSpecIndexStatus: vi.fn(), rebuildSpecIndex: vi.fn(), createProjectDraft: vi.fn(), confirmProjectDraft: vi.fn() }));
 const wrappers: VueWrapper[] = [];
 
 describe('SpecAssistantView', () => {
@@ -59,5 +59,19 @@ describe('SpecAssistantView', () => {
     await flushPromises();
     expect(wrapper.text()).toContain('Unable to answer.');
     expect(wrapper.text()).toContain('Retry');
+  });
+
+  it('previews and confirms project creation', async () => {
+    vi.mocked(api.createProjectDraft).mockResolvedValue({ id: 'draft-1', name: 'Portal', description: 'Redesign', expiresAt: '2026-08-16T01:00:00Z' });
+    vi.mocked(api.confirmProjectDraft).mockResolvedValue({ id: 'project-1', name: 'Portal', description: 'Redesign', status: 'Active', currentUserRole: 'Owner', createdAt: '2026-08-16T00:00:00Z', updatedAt: '2026-08-16T00:00:00Z' });
+    const wrapper = mountView();
+    await wrapper.get('textarea').setValue('Create Portal');
+    await wrapper.findAll('button').find(button => button.text().includes('Prepare project draft'))!.trigger('click');
+    await flushPromises();
+    expect(wrapper.text()).toContain('Portal');
+    await wrapper.findAll('button').find(button => button.text().includes('Confirm project creation'))!.trigger('click');
+    await flushPromises();
+    expect(api.confirmProjectDraft).toHaveBeenCalledWith('draft-1');
+    expect(wrapper.text()).toContain('was created');
   });
 });

@@ -2,6 +2,9 @@ using WEB_Demo.Api.Models;
 using WEB_Demo.Api.Options;
 using WEB_Demo.Api.Services;
 using Microsoft.Extensions.Options;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Identity;
+using WEB_Demo.Api.Authorization;
 
 namespace WEB_Demo.Api.Endpoints;
 
@@ -15,6 +18,12 @@ public static class SpecAssistantEndpoints
             .WithTags("Specification Assistant")
             .WithName("QuerySpecificationAssistant")
             .RequireAuthorization();
+        endpoints.MapPost("/api/spec-assistant/project-drafts", CreateProjectDraftAsync)
+            .WithTags("Specification Assistant").WithName("CreateAssistantProjectDraft")
+            .RequireAuthorization(PermissionPolicyProvider.For(AppPermissions.ProjectsCreate));
+        endpoints.MapPost("/api/spec-assistant/project-drafts/{draftId:guid}/confirm", ConfirmProjectDraftAsync)
+            .WithTags("Specification Assistant").WithName("ConfirmAssistantProjectDraft")
+            .RequireAuthorization(PermissionPolicyProvider.For(AppPermissions.ProjectsCreate));
         endpoints.MapGet("/api/spec-assistant/index", async (
             ISpecVectorIndex index, IPersistentSpecVectorStore store, IOptions<SpecAssistantOptions> options,
             CancellationToken cancellationToken) =>
@@ -48,6 +57,42 @@ public static class SpecAssistantEndpoints
             }
         }).WithTags("Specification Assistant").WithName("RebuildSpecificationIndex").RequireAuthorization();
         return endpoints;
+    }
+
+    private static async Task<IResult> CreateProjectDraftAsync(
+        ProjectDraftRequest request, ClaimsPrincipal principal, UserManager<IdentityUser> users,
+        ISpecAssistantClient assistant, IProjectDraftStore drafts, IOptions<SpecAssistantOptions> options,
+        CancellationToken cancellationToken)
+    {
+        var prompt = request.Prompt?.Trim();
+        if (string.IsNullOrWhiteSpace(prompt) || prompt.Length > options.Value.MaxQuestionLength)
+            return Results.BadRequest(ApiResponse<object>.Fail("Prompt is required and is too long.", "PROJECT_DRAFT_INVALID_PROMPT"));
+        try
+        {
+            var fields = await assistant.CreateProjectDraftAsync(prompt, cancellationToken);
+            var draft = drafts.Add(users.GetUserId(principal) ?? string.Empty, fields);
+            return Results.Ok(ApiResponse<ProjectDraftResponse>.Ok(draft));
+        }
+        catch (SpecAssistantUnavailableException)
+        {
+            return Results.Json(ApiResponse<object>.Fail("The assistant could not create a valid project draft.", "PROJECT_DRAFT_UNAVAILABLE"), statusCode: StatusCodes.Status503ServiceUnavailable);
+        }
+    }
+
+    private static async Task<IResult> ConfirmProjectDraftAsync(
+        Guid draftId, ClaimsPrincipal principal, UserManager<IdentityUser> users,
+        IProjectDraftStore drafts, ProjectAdministrationService projects)
+    {
+        var userId = users.GetUserId(principal) ?? string.Empty;
+        if (!drafts.TryTake(draftId, userId, out var fields) || fields is null)
+            return Results.NotFound(ApiResponse<object>.Fail("Project draft was not found or has expired.", "PROJECT_DRAFT_NOT_FOUND"));
+        var result = await projects.CreateAsync(userId, fields.Name, fields.Description);
+        return result.Status switch
+        {
+            AdministrationResultStatus.Success => Results.Created($"/api/projects/{result.Data!.Id}", ApiResponse<ProjectInfo>.Ok(result.Data, result.Message)),
+            AdministrationResultStatus.ValidationError => Results.BadRequest(ApiResponse<object>.Fail(result.Message, ApiErrorCodes.ValidationError)),
+            _ => Results.Json(ApiResponse<object>.Fail(result.Message, ApiErrorCodes.Conflict), statusCode: StatusCodes.Status409Conflict)
+        };
     }
 
     private static async Task<IResult> QueryAsync(
