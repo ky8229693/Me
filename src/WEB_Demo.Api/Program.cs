@@ -134,6 +134,7 @@ builder.Services.AddScoped<IssueAdministrationService>();
 builder.Services.AddScoped<ProjectLabelAdministrationService>();
 builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<AssistantConversationService>();
+builder.Services.AddScoped<IAssistantKernelFactory, AssistantKernelFactory>();
 builder.Services.AddScoped<AssistantOrchestrationService>();
 builder.Services.AddScoped<AssistantConfirmationService>();
 builder.Services.AddSingleton<ISpecDocumentSource, OpenSpecDocumentSource>();

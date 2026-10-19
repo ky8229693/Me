@@ -15,6 +15,7 @@ public sealed class AssistantOrchestrationService(
     ProjectAdministrationService projects,
     UserManager<IdentityUser> users,
     IPermissionResolver permissions,
+    IAssistantKernelFactory kernelFactory,
     IOptions<SpecAssistantOptions> options,
     ILogger<AssistantOrchestrationService> logger)
 {
@@ -39,14 +40,8 @@ public sealed class AssistantOrchestrationService(
         if (string.IsNullOrWhiteSpace(options.Value.Model))
             throw new SpecAssistantUnavailableException("Assistant model is not configured.");
 
-        var builder = Kernel.CreateBuilder();
-        builder.AddOpenAIChatCompletion(options.Value.Model,
-            new Uri(options.Value.BaseUrl, UriKind.Absolute), options.Value.ApiKey);
-        var kernel = builder.Build();
-        kernel.FunctionInvocationFilters.Add(new AssistantFunctionInvocationFilter(
-            options.Value.AssistantMaxToolCalls, options.Value.AssistantMaxToolResultCharacters, logger));
         var tools = new AssistantTools(userId, conversation, conversations, specifications, projects, users, permissions);
-        kernel.Plugins.AddFromObject(tools, "assistant");
+        var kernel = kernelFactory.Create(tools);
 
         var history = new ChatHistory(SystemPrompt);
         foreach (var item in await conversations.GetModelHistoryAsync(conversationId, cancellationToken))
