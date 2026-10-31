@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
+using Pgvector.EntityFrameworkCore;
 using WEB_Demo.Api.Data;
 
 namespace WEB_Demo.Api.E2E;
@@ -35,7 +36,7 @@ public sealed class E2EDatabaseLifecycleService(IConfiguration configuration, IH
             }
 
             var options = new DbContextOptionsBuilder<AppDbContext>()
-                .UseNpgsql(targetConnection)
+                .UseNpgsql(targetConnection, npgsql => npgsql.UseVector())
                 .Options;
             await using var dbContext = new AppDbContext(options);
             await dbContext.Database.MigrateAsync(cancellationToken);
