@@ -16,10 +16,78 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<Issue> Issues => Set<Issue>();
     public DbSet<IssueHistory> IssueHistory => Set<IssueHistory>();
     public DbSet<IssueComment> IssueComments => Set<IssueComment>();
+    public DbSet<ProjectLabel> ProjectLabels => Set<ProjectLabel>();
+    public DbSet<IssueLabel> IssueLabels => Set<IssueLabel>();
+    public DbSet<SpecVectorDocument> SpecVectorDocuments => Set<SpecVectorDocument>();
+    public DbSet<AssistantConversation> AssistantConversations => Set<AssistantConversation>();
+    public DbSet<AssistantMessage> AssistantMessages => Set<AssistantMessage>();
+    public DbSet<AssistantPendingAction> AssistantPendingActions => Set<AssistantPendingAction>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
+        if (Database.ProviderName?.Contains("Npgsql", StringComparison.Ordinal) == true)
+        {
+            builder.HasPostgresExtension("vector");
+            builder.Entity<SpecVectorDocument>(entity =>
+            {
+                entity.ToTable("SpecVectorDocuments");
+                entity.HasKey(item => item.Id);
+                entity.Property(item => item.ChunkId).HasMaxLength(600).IsRequired();
+                entity.Property(item => item.Capability).HasMaxLength(200).IsRequired();
+                entity.Property(item => item.SourcePath).HasMaxLength(1000).IsRequired();
+                entity.Property(item => item.Content).HasMaxLength(12000).IsRequired();
+                entity.Property(item => item.ContentHash).HasMaxLength(64).IsRequired();
+                entity.Property(item => item.EmbeddingModel).HasMaxLength(200).IsRequired();
+                entity.Property(item => item.Embedding).HasColumnType("vector(1024)").IsRequired();
+                entity.HasIndex(item => new { item.ChunkId, item.EmbeddingModel }).IsUnique();
+                entity.HasIndex(item => item.Embedding).HasMethod("hnsw").HasOperators("vector_cosine_ops");
+            });
+        }
+        else builder.Ignore<SpecVectorDocument>();
+
+        builder.Entity<AssistantConversation>(entity =>
+        {
+            entity.ToTable("AssistantConversations");
+            entity.HasKey(item => item.Id);
+            entity.Property(item => item.UserId).HasMaxLength(450).IsRequired();
+            entity.Property(item => item.Title).HasMaxLength(120);
+            entity.HasIndex(item => new { item.UserId, item.UpdatedAt });
+            entity.HasOne<Microsoft.AspNetCore.Identity.IdentityUser>().WithMany()
+                .HasForeignKey(item => item.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<AssistantMessage>(entity =>
+        {
+            entity.ToTable("AssistantMessages");
+            entity.HasKey(item => item.Id);
+            entity.Property(item => item.Role).HasConversion<string>().HasMaxLength(20).IsRequired();
+            entity.Property(item => item.Content).HasMaxLength(16000).IsRequired();
+            entity.Property(item => item.MetadataJson).HasColumnType("jsonb");
+            entity.HasIndex(item => new { item.ConversationId, item.CreatedAt });
+            entity.HasOne(item => item.Conversation).WithMany(item => item.Messages)
+                .HasForeignKey(item => item.ConversationId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<AssistantPendingAction>(entity =>
+        {
+            entity.ToTable("AssistantPendingActions");
+            entity.HasKey(item => item.Id);
+            entity.Property(item => item.UserId).HasMaxLength(450).IsRequired();
+            entity.Property(item => item.Type).HasConversion<string>().HasMaxLength(30).IsRequired();
+            entity.Property(item => item.Status).HasConversion<string>().HasMaxLength(20).IsRequired();
+            entity.Property(item => item.PayloadJson).HasColumnType("jsonb").IsRequired();
+            entity.Property(item => item.PreviewJson).HasColumnType("jsonb").IsRequired();
+            entity.Property(item => item.ResultJson).HasColumnType("jsonb");
+            entity.Property(item => item.IdempotencyKey).HasMaxLength(100).IsRequired();
+            entity.Property(item => item.Version).IsRowVersion();
+            entity.HasIndex(item => item.IdempotencyKey).IsUnique();
+            entity.HasIndex(item => new { item.ConversationId, item.Status });
+            entity.HasIndex(item => item.ConversationId).IsUnique()
+                .HasFilter("\"Status\" IN ('Pending', 'Processing')");
+            entity.HasOne(item => item.Conversation).WithMany(item => item.PendingActions)
+                .HasForeignKey(item => item.ConversationId).OnDelete(DeleteBehavior.Cascade);
+        });
 
         builder.Entity<RefreshToken>(entity =>
         {
@@ -118,6 +186,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
             entity.HasIndex(item => new { item.ProjectId, item.Type });
             entity.HasIndex(item => new { item.ProjectId, item.Priority });
             entity.HasIndex(item => new { item.ProjectId, item.AssigneeUserId });
+            entity.HasIndex(item => new { item.AssigneeUserId, item.Status, item.DueDate });
             entity.HasOne(item => item.Project).WithMany(project => project.Issues)
                 .HasForeignKey(item => item.ProjectId).OnDelete(DeleteBehavior.Cascade);
             entity.HasOne(item => item.CreatorUser).WithMany()
@@ -159,6 +228,29 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
                 .HasForeignKey(item => item.IssueId).OnDelete(DeleteBehavior.Cascade);
             entity.HasOne(item => item.AuthorUser).WithMany()
                 .HasForeignKey(item => item.AuthorUserId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<ProjectLabel>(entity =>
+        {
+            entity.ToTable("ProjectLabels");
+            entity.HasKey(item => item.Id);
+            entity.Property(item => item.Name).HasMaxLength(40).IsRequired();
+            entity.Property(item => item.NormalizedName).HasMaxLength(40).IsRequired();
+            entity.Property(item => item.Color).HasMaxLength(7).IsRequired();
+            entity.HasIndex(item => new { item.ProjectId, item.NormalizedName }).IsUnique();
+            entity.HasOne(item => item.Project).WithMany(project => project.Labels)
+                .HasForeignKey(item => item.ProjectId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<IssueLabel>(entity =>
+        {
+            entity.ToTable("IssueLabels");
+            entity.HasKey(item => new { item.IssueId, item.LabelId });
+            entity.HasIndex(item => item.LabelId);
+            entity.HasOne(item => item.Issue).WithMany(issue => issue.IssueLabels)
+                .HasForeignKey(item => item.IssueId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(item => item.Label).WithMany(label => label.IssueLabels)
+                .HasForeignKey(item => item.LabelId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

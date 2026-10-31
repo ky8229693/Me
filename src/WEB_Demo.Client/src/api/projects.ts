@@ -1,5 +1,5 @@
 import { requestApi } from './http';
-import type { ProjectInfo, ProjectMemberCandidate, ProjectMemberInfo } from './types';
+import type { ProjectInfo, ProjectMemberCandidate, ProjectMemberInfo, ProjectOverviewInfo } from './types';
 
 export const projectRoles = ['Owner', 'Manager', 'Member', 'Viewer'] as const;
 
@@ -9,6 +9,10 @@ export function getProjects(): Promise<ProjectInfo[] | null> {
 
 export function getProject(projectId: string): Promise<ProjectInfo | null> {
   return requestApi<ProjectInfo>(`/api/projects/${encodeURIComponent(projectId)}`);
+}
+
+export function getProjectOverview(projectId: string): Promise<ProjectOverviewInfo | null> {
+  return requestApi<ProjectOverviewInfo>(`/api/projects/${encodeURIComponent(projectId)}/overview`);
 }
 
 export function createProject(name: string, description: string | null): Promise<ProjectInfo | null> {

@@ -12,10 +12,12 @@ import { useToast } from 'primevue/usetoast';
 import { createAdminRole, deleteAdminRole, getAdminRoles, getPermissionCatalog, getRolePermissions, renameAdminRole, updateRolePermissions } from '../api/adminRoles';
 import type { AdminRole, AuthUser, PermissionInfo } from '../api/types';
 import { hasPermission, permissions as appPermissions } from '../auth/permissions';
+import { useI18n } from 'vue-i18n';
 
 const props = defineProps<{ currentUser: AuthUser }>();
 
 const toast = useToast();
+const { t, te } = useI18n();
 const roles = ref<AdminRole[]>([]);
 const loading = ref(false);
 const errorMessage = ref('');
@@ -31,6 +33,10 @@ const groupedCatalog = computed(() => catalog.value.reduce<Record<string, Permis
   (groups[item.category] ??= []).push(item);
   return groups;
 }, {}));
+function permissionText(permission: PermissionInfo, field: 'name' | 'description') {
+  const key = `permission.${permission.key.replace('.', '_')}.${field}`;
+  return te(key) ? t(key) : permission[field];
+}
 
 async function loadRoles() {
   loading.value = true;
@@ -39,7 +45,7 @@ async function loadRoles() {
     roles.value = (await getAdminRoles()) ?? [];
     roleDrafts.value = Object.fromEntries(roles.value.map(role => [role.id, role.name]));
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : 'Unable to load roles.';
+    errorMessage.value = error instanceof Error ? error.message : t('admin.loadRolesFailed');
   } finally {
     loading.value = false;
   }
@@ -63,10 +69,10 @@ async function savePermissions() {
   permissionLoading.value = true;
   try {
     await updateRolePermissions(selectedRole.value.id, permissionDraft.value);
-    toast.add({ severity: 'success', detail: 'Permissions updated. Affected sessions were revoked.', life: 3200 });
+    toast.add({ severity: 'success', detail: t('admin.permissionsUpdated'), life: 3200 });
     selectedRole.value = null;
   } catch (error) {
-    toast.add({ severity: 'error', detail: error instanceof Error ? error.message : 'Unable to update permissions.', life: 3600 });
+    toast.add({ severity: 'error', detail: error instanceof Error ? error.message : t('common.error'), life: 3600 });
   } finally { permissionLoading.value = false; }
 }
 
@@ -85,9 +91,9 @@ async function createRole() {
       roleDrafts.value[created.id] = created.name;
     }
     newRoleName.value = '';
-    toast.add({ severity: 'success', detail: 'Role created.', life: 2600 });
+    toast.add({ severity: 'success', detail: t('admin.roleCreated'), life: 2600 });
   } catch (error) {
-    toast.add({ severity: 'error', detail: error instanceof Error ? error.message : 'Unable to create role.', life: 3600 });
+    toast.add({ severity: 'error', detail: error instanceof Error ? error.message : t('common.error'), life: 3600 });
   }
 }
 
@@ -95,21 +101,21 @@ async function renameRole(role: AdminRole) {
   try {
     const updated = await renameAdminRole(role.id, roleDrafts.value[role.id] ?? '');
     if (updated) replaceRole(updated);
-    toast.add({ severity: 'success', detail: 'Role renamed.', life: 2600 });
+    toast.add({ severity: 'success', detail: t('admin.roleRenamed'), life: 2600 });
   } catch (error) {
     roleDrafts.value[role.id] = role.name;
-    toast.add({ severity: 'error', detail: error instanceof Error ? error.message : 'Unable to rename role.', life: 3600 });
+    toast.add({ severity: 'error', detail: error instanceof Error ? error.message : t('common.error'), life: 3600 });
   }
 }
 
 async function removeRole(role: AdminRole) {
-  if (!window.confirm(`Delete role ${role.name}?`)) return;
+  if (!window.confirm(`${t('admin.deleteRole')} ${role.name}?`)) return;
   try {
     await deleteAdminRole(role.id);
     roles.value = roles.value.filter(item => item.id !== role.id);
-    toast.add({ severity: 'success', detail: 'Role deleted.', life: 2600 });
+    toast.add({ severity: 'success', detail: t('admin.roleDeleted'), life: 2600 });
   } catch (error) {
-    toast.add({ severity: 'error', detail: error instanceof Error ? error.message : 'Unable to delete role.', life: 3600 });
+    toast.add({ severity: 'error', detail: error instanceof Error ? error.message : t('common.error'), life: 3600 });
     await loadRoles();
   }
 }
@@ -121,52 +127,52 @@ onMounted(loadRoles);
   <section class="workspace admin-roles-view">
     <header class="page-header">
       <div>
-        <p class="eyebrow">Administration</p>
-        <h1>Role Management</h1>
-        <p>Roles grant API access through explicit permissions. System Admin always has the complete catalog.</p>
+        <p class="eyebrow">{{t('admin.administration')}}</p>
+        <h1>{{t('admin.rolesTitle')}}</h1>
+        <p>{{t('admin.roleSubtitle')}}</p>
       </div>
       <div class="admin-search">
-        <InputText v-model="newRoleName" placeholder="New role name" aria-label="New role name" @keyup.enter="createRole" />
-        <Button label="Create role" icon="pi pi-plus" :disabled="!canManageRoles || !newRoleName.trim()" :loading="loading" @click="createRole" />
+        <InputText v-model="newRoleName" :placeholder="t('admin.newRoleName')" :aria-label="t('admin.newRoleName')" @keyup.enter="createRole" />
+        <Button :label="t('admin.createRole')" icon="pi pi-plus" :disabled="!canManageRoles || !newRoleName.trim()" :loading="loading" @click="createRole" />
       </div>
     </header>
 
     <Message v-if="errorMessage" severity="error" class="content-alert">{{ errorMessage }}</Message>
 
     <DataTable :value="roles" :loading="loading" data-key="id" striped-rows>
-      <template #empty>No roles found.</template>
-      <Column header="Name">
+      <template #empty>{{t('admin.noRoles')}}</template>
+      <Column :header="t('common.name')">
         <template #body="{ data }">
-            <InputText v-model="roleDrafts[data.id]" :disabled="data.isSystem || !canManageRoles" :aria-label="`Role name ${data.name}`" />
+            <InputText v-model="roleDrafts[data.id]" :disabled="data.isSystem || !canManageRoles" :aria-label="`${t('admin.roleName')} ${data.name}`" />
         </template>
       </Column>
-      <Column header="Type">
-        <template #body="{ data }"><Tag :value="data.isSystem ? 'System' : 'Custom'" :severity="data.isSystem ? 'info' : 'secondary'" /></template>
+      <Column :header="t('admin.type')">
+        <template #body="{ data }"><Tag :value="t(data.isSystem ? 'admin.system' : 'admin.custom')" :severity="data.isSystem ? 'info' : 'secondary'" /></template>
       </Column>
-      <Column field="userCount" header="Users" />
-      <Column header="Actions">
+      <Column field="userCount" :header="t('admin.users')" />
+      <Column :header="t('common.actions')">
         <template #body="{ data }">
           <div class="row-actions">
-            <Button label="Permissions" size="small" icon="pi pi-key" :disabled="!canManagePermissions" :loading="permissionLoading" @click="editPermissions(data)" />
-            <Button label="Rename" size="small" severity="secondary" :disabled="!canManageRoles || data.isSystem || roleDrafts[data.id] === data.name" @click="renameRole(data)" />
-            <Button label="Delete" size="small" severity="danger" :disabled="!canManageRoles || data.isSystem || data.userCount > 0" :title="data.userCount > 0 ? 'Remove all user assignments before deleting.' : undefined" @click="removeRole(data)" />
+            <Button :label="t('admin.permissions')" size="small" icon="pi pi-key" :disabled="!canManagePermissions" :loading="permissionLoading" @click="editPermissions(data)" />
+            <Button :label="t('admin.rename')" size="small" severity="secondary" :disabled="!canManageRoles || data.isSystem || roleDrafts[data.id] === data.name" @click="renameRole(data)" />
+            <Button :label="t('common.delete')" size="small" severity="danger" :disabled="!canManageRoles || data.isSystem || data.userCount > 0" @click="removeRole(data)" />
           </div>
         </template>
       </Column>
     </DataTable>
 
-    <Dialog :visible="Boolean(selectedRole)" modal :header="`Permissions · ${selectedRole?.name ?? ''}`" :style="{ width: '42rem' }" @update:visible="selectedRole = null">
-      <Message v-if="selectedRole?.name === 'Admin'" severity="info">Admin is the break-glass system role and always has every permission.</Message>
+    <Dialog :visible="Boolean(selectedRole)" modal :header="`${t('admin.permissions')} · ${selectedRole?.name ?? ''}`" :style="{ width: '42rem' }" @update:visible="selectedRole = null">
+      <Message v-if="selectedRole?.name === 'Admin'" severity="info">{{t('admin.adminAllPermissions')}}</Message>
       <div v-for="(items, category) in groupedCatalog" :key="category" class="permission-group">
         <h3>{{ category }}</h3>
         <label v-for="permission in items" :key="permission.key" class="permission-option">
           <Checkbox v-model="permissionDraft" :input-id="permission.key" :value="permission.key" :disabled="selectedRole?.name === 'Admin'" />
-          <span><strong>{{ permission.name }}</strong><small>{{ permission.description }}</small></span>
+          <span><strong>{{ permissionText(permission, 'name') }}</strong><small>{{ permissionText(permission, 'description') }}</small></span>
         </label>
       </div>
       <template #footer>
-        <Button label="Cancel" severity="secondary" @click="selectedRole = null" />
-        <Button label="Save permissions" :disabled="selectedRole?.name === 'Admin'" :loading="permissionLoading" @click="savePermissions" />
+        <Button :label="t('common.cancel')" severity="secondary" @click="selectedRole = null" />
+        <Button :label="t('admin.savePermissions')" :disabled="selectedRole?.name === 'Admin'" :loading="permissionLoading" @click="savePermissions" />
       </template>
     </Dialog>
   </section>

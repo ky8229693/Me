@@ -50,6 +50,18 @@ cd src/WEB_Demo.Client
 npm run build
 ```
 
+### Local vs CI Validation
+
+- Use risk-based local validation during implementation; do not automatically duplicate the entire CI workflow after every OpenSpec change.
+- Always run the build, unit tests, integration tests, or targeted E2E specs directly affected by the change.
+- If no E2E spec or shared E2E infrastructure changed, leave unaffected E2E coverage to CI unless the application change itself requires a targeted local Playwright check.
+- When adding or modifying an E2E spec, run that affected spec locally at least once before considering it complete.
+- When changing shared E2E infrastructure such as the runner, authentication helpers, database lifecycle, global setup, Playwright configuration, or Docker integration, run the complete local E2E suite because the change can affect every spec.
+- Run a targeted local Playwright spec when changing cross-frontend/backend flows, authentication, routing, database behavior, or workflow behavior. Leave the remaining unchanged E2E suite to CI unless broad regression risk justifies a local full run.
+- Run local Compose config and image builds only when changing Dockerfiles, Compose, Nginx, environment interpolation, production build behavior, or deployment configuration. For ordinary application features, the CI `Containers` job is the required verification boundary.
+- Before merge, require the GitHub Actions `Backend`, `Frontend`, `OpenSpec`, `E2E`, and `Containers` checks to pass. A check may be accepted from CI instead of being rerun locally.
+- OpenSpec verification tasks should say "local or CI" when either environment provides equivalent evidence; do not leave a change incomplete solely because an unchanged CI-owned check was not duplicated locally.
+
 Tests:
 
 ```powershell
@@ -72,7 +84,7 @@ npm run spec:view
   1. Propose the change.
   2. Define requirements and acceptance criteria.
   3. Validate the spec.
-  4. Implement after the change is clear.
+  4. After the spec is complete and valid, proceed directly to implementation unless a blocker or material user decision remains; do not wait for a second confirmation.
   5. Verify with build/tests.
 - For small mechanical fixes, direct implementation is acceptable.
 - Keep changes scoped and aligned with the existing stack.

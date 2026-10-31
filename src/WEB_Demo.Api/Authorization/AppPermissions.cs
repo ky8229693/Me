@@ -11,8 +11,6 @@ public static partial class AppPermissions
     public const string RolesRead = "roles.read";
     public const string RolesManage = "roles.manage";
     public const string PermissionsManage = "permissions.manage";
-    public const string TodosRead = "todos.read";
-    public const string TodosManage = "todos.manage";
     public const string ProjectsCreate = "projects.create";
 
     public static readonly IReadOnlyList<AppPermission> Catalog =
@@ -22,8 +20,6 @@ public static partial class AppPermissions
         new(RolesRead, "View roles", "View roles and their permission summary.", "Roles"),
         new(RolesManage, "Manage roles", "Create, rename, and delete custom roles.", "Roles"),
         new(PermissionsManage, "Manage permissions", "View the permission catalog and configure role permissions.", "Permissions"),
-        new(TodosRead, "View todos", "View todo items.", "Todos"),
-        new(TodosManage, "Manage todos", "Create, update, and delete todo items.", "Todos"),
         new(ProjectsCreate, "Create projects", "Create a project and become its first Owner.", "Projects")
     ];
 

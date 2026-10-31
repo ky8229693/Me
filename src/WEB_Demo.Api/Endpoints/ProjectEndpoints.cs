@@ -35,6 +35,11 @@ public static class ProjectEndpoints
             ToResult(await service.GetAsync(projectId, users.GetUserId(principal) ?? string.Empty)))
             .WithName("GetProject");
 
+        projects.MapGet("/{projectId:guid}/overview", async (Guid projectId, ClaimsPrincipal principal,
+            UserManager<IdentityUser> users, ProjectAdministrationService service) =>
+            ToResult(await service.GetOverviewAsync(projectId, users.GetUserId(principal) ?? string.Empty)))
+            .WithName("GetProjectOverview");
+
         projects.MapPut("/{projectId:guid}", async (Guid projectId, UpdateProjectRequest request,
             ClaimsPrincipal principal, UserManager<IdentityUser> users, ProjectAdministrationService service) =>
             ToResult(await service.UpdateAsync(projectId, users.GetUserId(principal) ?? string.Empty, request.Name, request.Description)))

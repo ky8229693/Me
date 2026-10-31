@@ -5,9 +5,8 @@ import ToastService from 'primevue/toastservice';
 import Aura from '@primeuix/themes/aura';
 // @ts-ignore: Vue single-file component declarations are handled by Vite/Vue plugin
 import App from './App.vue';
+import { i18n } from './i18n';
 import * as authApi from './api/auth';
-import * as todoApi from './api/todos';
-import type { TodoItem } from './api/types';
 import { notifySessionExpired } from './api/authSession';
 import { createTestRouter } from './test/router';
 
@@ -18,12 +17,9 @@ vi.mock('./api/auth', () => ({
   register: vi.fn()
 }));
 
-vi.mock('./api/todos', () => ({
-  getTodos: vi.fn(),
-  createTodo: vi.fn(),
-  toggleTodo: vi.fn(),
-  deleteTodo: vi.fn()
-}));
+vi.mock('./api/dashboard', () => ({ getDashboard: vi.fn().mockResolvedValue({
+  assignedCount: 0, overdueCount: 0, statusCounts: [], assignedIssues: [], overdueIssues: [], recentActivity: []
+}) }));
 
 vi.mock('./api/adminUsers', () => ({
   getAdminUsers: vi.fn().mockResolvedValue({ items: [], page: 1, pageSize: 10, totalCount: 0 }),
@@ -34,10 +30,6 @@ vi.mock('./api/adminUsers', () => ({
 const refreshSessionMock = vi.mocked(authApi.refreshSession);
 const loginMock = vi.mocked(authApi.login);
 const logoutMock = vi.mocked(authApi.logout);
-const getTodosMock = vi.mocked(todoApi.getTodos);
-const createTodoMock = vi.mocked(todoApi.createTodo);
-const toggleTodoMock = vi.mocked(todoApi.toggleTodo);
-const deleteTodoMock = vi.mocked(todoApi.deleteTodo);
 
 const mountedWrappers: VueWrapper[] = [];
 
@@ -46,6 +38,7 @@ async function mountApp(initialPath = '/dashboard'): Promise<VueWrapper> {
   const wrapper = mount(App, {
     global: {
       plugins: [
+        i18n,
         [PrimeVue, { theme: { preset: Aura } }],
         ToastService,
         router
@@ -84,13 +77,9 @@ describe('App', () => {
       removeEventListener: vi.fn()
     }));
 
-    getTodosMock.mockResolvedValue([]);
     refreshSessionMock.mockResolvedValue(null);
     loginMock.mockResolvedValue(null);
     logoutMock.mockResolvedValue(undefined);
-    createTodoMock.mockResolvedValue(null);
-    toggleTodoMock.mockResolvedValue(null);
-    deleteTodoMock.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -99,13 +88,13 @@ describe('App', () => {
     vi.unstubAllGlobals();
   });
 
-  it('loads todos when the dashboard is mounted', async () => {
+  it('shows the workbench when the dashboard is mounted', async () => {
     refreshSessionMock.mockResolvedValue(restoredSession({ id: '1', email: 'user@example.com', roles: ['User'] }));
 
-    await mountApp();
+    const wrapper = await mountApp();
     await flushPromises();
 
-    expect(getTodosMock).toHaveBeenCalledOnce();
+    expect(wrapper.text()).toContain('My workbench');
   });
 
   it('shows user management navigation only for Admin users', async () => {
@@ -164,22 +153,6 @@ describe('App', () => {
     expect(layout.classes()).not.toContain('layout-sidebar-collapsed');
   });
 
-  it('creates a todo with the entered title', async () => {
-    const createdTodo: TodoItem = { id: 2, title: 'New todo', isDone: false };
-    refreshSessionMock.mockResolvedValue(restoredSession({ id: '1', email: 'user@example.com', roles: ['User'] }));
-    createTodoMock.mockResolvedValue(createdTodo);
-
-    const wrapper = await mountApp();
-    await flushPromises();
-
-    await wrapper.find('input[placeholder="Add a todo item"]').setValue('New todo');
-    await wrapper.find('.todo-form').trigger('submit');
-    await flushPromises();
-
-    expect(createTodoMock).toHaveBeenCalledWith('New todo');
-    expect(wrapper.text()).toContain('New todo');
-  });
-
   it('shows validation feedback for short auth passwords', async () => {
     const wrapper = await mountApp();
     await flushPromises();
@@ -191,27 +164,6 @@ describe('App', () => {
 
     expect(loginMock).not.toHaveBeenCalled();
     expect(wrapper.text()).toContain('Password must be at least 6 characters.');
-  });
-
-  it('toggles and deletes todos through the Todo API module', async () => {
-    const todo: TodoItem = { id: 1, title: 'Existing todo', isDone: false };
-    refreshSessionMock.mockResolvedValue(restoredSession({ id: '1', email: 'user@example.com', roles: ['User'] }));
-    getTodosMock.mockResolvedValue([todo]);
-    toggleTodoMock.mockResolvedValue({ ...todo, isDone: true });
-
-    const wrapper = await mountApp();
-    await flushPromises();
-
-    await wrapper.find('input[type="checkbox"]').setValue(true);
-    await flushPromises();
-
-    const deleteButton = wrapper.findAll('button').find(button => button.text().includes('Delete'));
-    expect(deleteButton).toBeDefined();
-    await deleteButton!.trigger('click');
-    await flushPromises();
-
-    expect(toggleTodoMock).toHaveBeenCalledWith(1);
-    expect(deleteTodoMock).toHaveBeenCalledWith(1);
   });
 
   it('waits for backend logout and returns to the login view', async () => {

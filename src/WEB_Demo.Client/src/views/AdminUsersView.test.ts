@@ -3,6 +3,7 @@ import { flushPromises, mount } from '@vue/test-utils';
 import PrimeVue from 'primevue/config';
 import Aura from '@primeuix/themes/aura';
 import AdminUsersView from './AdminUsersView.vue';
+import { i18n } from '../i18n';
 import * as adminApi from '../api/adminUsers';
 import * as roleApi from '../api/adminRoles';
 
@@ -24,7 +25,7 @@ const user = { id: 'target', email: 'target@example.com', isEnabled: true, roles
 function mountView() {
   return mount(AdminUsersView, {
     props: { currentUserId: 'admin' },
-    global: { plugins: [[PrimeVue, { theme: { preset: Aura } }]] }
+    global: { plugins: [i18n, [PrimeVue, { theme: { preset: Aura } }]] }
   });
 }
 

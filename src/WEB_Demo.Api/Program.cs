@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Pgvector.EntityFrameworkCore;
 using WEB_Demo.Api.Authorization;
 using WEB_Demo.Api.Bootstrap;
 using WEB_Demo.Api.Data;
@@ -27,6 +28,8 @@ var jwtOptions = builder.Configuration
 
 builder.Services.Configure<ApiCorsOptions>(
     builder.Configuration.GetSection(ApiCorsOptions.SectionName));
+builder.Services.Configure<SpecAssistantOptions>(
+    builder.Configuration.GetSection(SpecAssistantOptions.SectionName));
 builder.Services.AddOptions<JwtOptions>()
     .Bind(builder.Configuration.GetSection(JwtOptions.SectionName))
     .Validate(options => options.AccessTokenMinutes > 0, "AccessTokenMinutes must be positive.")
@@ -35,10 +38,12 @@ builder.Services.AddOptions<JwtOptions>()
     .Validate(options => !string.IsNullOrWhiteSpace(options.RefreshCookieName), "RefreshCookieName is required.")
     .ValidateOnStart();
 builder.Services.AddMemoryCache();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<IProjectDraftStore, InMemoryProjectDraftStore>();
 builder.Services.AddSingleton<IJwtSessionRegistry, InMemoryJwtSessionRegistry>();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"), npgsql => npgsql.UseVector()));
 builder.Services
     .AddIdentityCore<IdentityUser>(options =>
     {
@@ -110,7 +115,6 @@ builder.Services.AddAuthorization(options =>
 });
 builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
 builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
-builder.Services.AddSingleton<ITodoService, InMemoryTodoService>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
 builder.Services.AddScoped<IRefreshCookieService, RefreshCookieService>();
@@ -119,6 +123,7 @@ builder.Services.AddScoped<IPermissionResolver, PermissionResolver>();
 builder.Services.AddScoped<AppRoleInitializer>();
 builder.Services.AddScoped<PermissionCatalogInitializer>();
 builder.Services.AddScoped<AdminBootstrapService>();
+builder.Services.AddScoped<DevelopmentDemoSeedService>();
 builder.Services.AddScoped<AccountAdministrationService>();
 builder.Services.AddScoped<RoleNameValidator>();
 builder.Services.AddScoped<RoleAdministrationService>();
@@ -126,6 +131,22 @@ builder.Services.AddScoped<PermissionAdministrationService>();
 builder.Services.AddScoped<ProjectAccessService>();
 builder.Services.AddScoped<ProjectAdministrationService>();
 builder.Services.AddScoped<IssueAdministrationService>();
+builder.Services.AddScoped<ProjectLabelAdministrationService>();
+builder.Services.AddScoped<DashboardService>();
+builder.Services.AddScoped<AssistantConversationService>();
+builder.Services.AddScoped<IAssistantKernelFactory, AssistantKernelFactory>();
+builder.Services.AddScoped<AssistantOrchestrationService>();
+builder.Services.AddScoped<AssistantConfirmationService>();
+builder.Services.AddSingleton<ISpecDocumentSource, OpenSpecDocumentSource>();
+builder.Services.AddHttpClient(nameof(OpenAiCompatibleEmbeddingClient));
+builder.Services.AddSingleton<IEmbeddingClient, OpenAiCompatibleEmbeddingClient>();
+builder.Services.AddSingleton<ISpecVectorIndex, InMemorySpecVectorIndex>();
+builder.Services.AddScoped<IPersistentSpecVectorStore, PostgresSpecVectorStore>();
+builder.Services.AddScoped<LexicalSpecDocumentRetriever>();
+builder.Services.AddScoped<EmbeddingSpecDocumentRetriever>();
+builder.Services.AddScoped<PostgresEmbeddingSpecDocumentRetriever>();
+builder.Services.AddScoped<ISpecDocumentRetriever, ConfiguredSpecDocumentRetriever>();
+builder.Services.AddHttpClient<ISpecAssistantClient, OpenAiCompatibleSpecAssistantClient>();
 builder.Services.AddScoped<E2EDatabaseLifecycleService>();
 builder.Services.AddHealthChecks();
 
@@ -213,6 +234,23 @@ using (var scope = app.Services.CreateScope())
     await scope.ServiceProvider.GetRequiredService<PermissionCatalogInitializer>().InitializeAsync();
 }
 
+if (DemoSeedCommand.IsRequested(args))
+{
+    if (!DemoSeedCommand.TryParse(args, out var command, out var error))
+    {
+        Console.Error.WriteLine(error);
+        Environment.ExitCode = 1;
+        return;
+    }
+
+    await using var scope = app.Services.CreateAsyncScope();
+    var result = await scope.ServiceProvider.GetRequiredService<DevelopmentDemoSeedService>()
+        .SeedAsync(command!.OwnerEmail, app.Environment.IsDevelopment());
+    (result.Succeeded ? Console.Out : Console.Error).WriteLine(result.Message);
+    Environment.ExitCode = result.Succeeded ? 0 : 1;
+    return;
+}
+
 if (AdminBootstrapCommand.IsRequested(args))
 {
     if (!AdminBootstrapCommand.TryParse(args, out var command, out var error))
@@ -250,9 +288,11 @@ app.MapGet("/", () => Results.Redirect("/swagger"))
 app.MapAuthEndpoints();
 app.MapAdminEndpoints();
 app.MapHealthEndpoints();
-app.MapTodoEndpoints();
 app.MapProjectEndpoints();
 app.MapIssueEndpoints();
+app.MapDashboardEndpoints();
+app.MapSpecAssistantEndpoints();
+app.MapAssistantEndpoints();
 
 app.Run();
 

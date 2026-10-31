@@ -9,30 +9,33 @@ import SelectButton from 'primevue/selectbutton';
 import { useToast } from 'primevue/usetoast';
 import { login, register } from '../api/auth';
 import type { AuthUser } from '../api/types';
+import { useI18n } from 'vue-i18n';
+import LanguageSelect from '../components/LanguageSelect.vue';
 
 const emit = defineEmits<{
   authenticated: [user: AuthUser];
 }>();
 
 const toast = useToast();
+const { t } = useI18n();
 const authMode = ref<'login' | 'register'>('login');
 const authEmail = ref('');
 const authPassword = ref('');
 const isAuthLoading = ref(false);
 const authErrorMessage = ref('');
 const rememberMe = ref(false);
-const authModeOptions = [
-  { label: 'Login', value: 'login' },
-  { label: 'Register', value: 'register' }
-];
+const authModeOptions = computed(() => [
+  { label: t('auth.login'), value: 'login' },
+  { label: t('auth.register'), value: 'register' }
+]);
 
-const authTitle = computed(() => (authMode.value === 'login' ? 'Sign in' : 'Create account'));
+const authTitle = computed(() => t(authMode.value === 'login' ? 'auth.loginTitle' : 'auth.registerTitle'));
 const authSubtitle = computed(() => (
   authMode.value === 'login'
-    ? 'Welcome back. Enter your credentials to continue.'
-    : 'Create an account to start managing your workspace.'
+    ? t('auth.loginSubtitle')
+    : t('auth.registerSubtitle')
 ));
-const authSubmitLabel = computed(() => (authMode.value === 'login' ? 'Sign In' : 'Create Account'));
+const authSubmitLabel = computed(() => t(authMode.value === 'login' ? 'auth.signIn' : 'auth.createAccount'));
 
 function notify(severity: 'success' | 'info' | 'warn' | 'error', detail: string) {
   toast.add({ severity, detail, life: 2600 });
@@ -44,13 +47,13 @@ async function submitAuth() {
   authErrorMessage.value = '';
 
   if (!email || !password) {
-    authErrorMessage.value = 'Email and password are required.';
-    notify('warn', 'Email and password are required.');
+    authErrorMessage.value = t('auth.required');
+    notify('warn', t('auth.required'));
     return;
   }
 
   if (password.length < 6) {
-    authErrorMessage.value = 'Password must be at least 6 characters.';
+    authErrorMessage.value = t('auth.passwordLength');
     notify('warn', authErrorMessage.value);
     return;
   }
@@ -63,14 +66,14 @@ async function submitAuth() {
       : await register({ email, password });
 
     if (!response?.user) {
-      throw new Error('Authentication failed.');
+      throw new Error(t('auth.failed'));
     }
 
     authPassword.value = '';
     emit('authenticated', response.user);
-    notify('success', authMode.value === 'login' ? 'Signed in.' : 'Account created.');
+    notify('success', t(authMode.value === 'login' ? 'auth.signedIn' : 'auth.accountCreated'));
   } catch (error) {
-    authErrorMessage.value = error instanceof Error ? error.message : 'Authentication failed.';
+    authErrorMessage.value = error instanceof Error ? error.message : t('auth.failed');
     notify('error', authErrorMessage.value);
   } finally {
     isAuthLoading.value = false;
@@ -80,7 +83,7 @@ async function submitAuth() {
 
 <template>
   <main class="app-shell login-shell">
-    <section class="login-panel" aria-label="Authentication">
+    <section class="login-panel" :aria-label="t('auth.authentication')">
       <div class="login-card">
         <div class="login-brand">
           <span class="brand-mark" aria-hidden="true">
@@ -92,6 +95,7 @@ async function submitAuth() {
           <p>{{ authSubtitle }}</p>
         </div>
 
+        <LanguageSelect />
         <SelectButton
           v-model="authMode"
           class="auth-mode"
@@ -99,12 +103,12 @@ async function submitAuth() {
           option-label="label"
           option-value="value"
           :allow-empty="false"
-          aria-label="Authentication mode"
+          :aria-label="t('auth.mode')"
         />
 
         <form class="auth-form" @submit.prevent="submitAuth">
           <div class="field">
-            <label for="auth-email">Email</label>
+            <label for="auth-email">{{ t('common.email') }}</label>
             <InputText
               id="auth-email"
               v-model="authEmail"
@@ -116,14 +120,14 @@ async function submitAuth() {
           </div>
 
           <div class="field">
-            <label for="auth-password">Password</label>
+            <label for="auth-password">{{ t('common.password') }}</label>
             <Password
               v-model="authPassword"
               input-id="auth-password"
               :autocomplete="authMode === 'login' ? 'current-password' : 'new-password'"
               :feedback="authMode === 'register'"
               toggle-mask
-              placeholder="Password"
+              :placeholder="t('common.password')"
               :invalid="Boolean(authErrorMessage)"
               @keyup.enter="submitAuth"
             />
@@ -132,9 +136,9 @@ async function submitAuth() {
           <div class="auth-options">
             <div class="remember-row">
               <Checkbox v-model="rememberMe" input-id="remember-me" binary />
-              <label for="remember-me">Remember me</label>
+              <label for="remember-me">{{ t('auth.remember') }}</label>
             </div>
-            <Button type="button" label="Forgot password?" link />
+            <Button type="button" :label="t('auth.forgot')" link />
           </div>
 
           <Message

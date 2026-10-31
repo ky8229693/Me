@@ -68,6 +68,39 @@ public sealed class ProjectAdministrationService(
             : AdministrationResult<ProjectInfo>.Success(ToInfo(project, membership.Role));
     }
 
+    public async Task<AdministrationResult<ProjectOverviewInfo>> GetOverviewAsync(Guid projectId, string userId)
+    {
+        if (await access.GetMembershipAsync(projectId, userId) is null)
+            return AdministrationResult<ProjectOverviewInfo>.NotFound("Project was not found.");
+
+        var issues = dbContext.Issues.AsNoTracking().Where(item => item.ProjectId == projectId);
+        var now = DateTimeOffset.UtcNow;
+        var totalCount = await issues.CountAsync();
+        var inProgressCount = await issues.CountAsync(item => item.Status == IssueStatus.InProgress);
+        var completedCount = await issues.CountAsync(item => item.Status == IssueStatus.Done);
+        var overdueCount = await issues.CountAsync(item =>
+            item.Status != IssueStatus.Done && item.DueDate != null && item.DueDate < now);
+        var rawCounts = await issues.GroupBy(item => item.Status)
+            .Select(group => new { Status = group.Key, Count = group.Count() })
+            .ToArrayAsync();
+        var statusCounts = Enum.GetValues<IssueStatus>()
+            .Select(status => new ProjectOverviewStatusCount(
+                status.ToString(), rawCounts.FirstOrDefault(item => item.Status == status)?.Count ?? 0))
+            .ToArray();
+        var recentIssues = await ProjectOverviewIssues(
+            issues.OrderByDescending(item => item.UpdatedAt).ThenBy(item => item.Id));
+        var upcomingIssues = await ProjectOverviewIssues(issues
+            .Where(item => item.Status != IssueStatus.Done && item.DueDate != null && item.DueDate >= now)
+            .OrderBy(item => item.DueDate).ThenBy(item => item.Id));
+        var completionRate = totalCount == 0
+            ? 0
+            : (int)Math.Round(completedCount * 100d / totalCount, MidpointRounding.AwayFromZero);
+
+        return AdministrationResult<ProjectOverviewInfo>.Success(new ProjectOverviewInfo(
+            totalCount, inProgressCount, completedCount, overdueCount, completionRate,
+            statusCounts, recentIssues, upcomingIssues));
+    }
+
     public async Task<AdministrationResult<ProjectInfo>> UpdateAsync(
         Guid projectId, string actorUserId, string? name, string? description)
     {
@@ -311,4 +344,11 @@ public sealed class ProjectAdministrationService(
 
     private static ProjectMemberInfo ToMemberInfo(ProjectMembership membership, IdentityUser user) =>
         new(membership.UserId, user.Email ?? string.Empty, membership.Role.ToString(), membership.CreatedAt, membership.UpdatedAt);
+
+    private static async Task<IReadOnlyCollection<ProjectOverviewIssueInfo>> ProjectOverviewIssues(
+        IOrderedQueryable<Issue> query) =>
+        await query.Take(5)
+            .Select(item => new ProjectOverviewIssueInfo(
+                item.Id, item.Title, item.Status.ToString(), item.Priority.ToString(), item.DueDate, item.UpdatedAt))
+            .ToArrayAsync();
 }

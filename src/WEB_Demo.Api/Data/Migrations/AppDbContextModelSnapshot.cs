@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
+using Pgvector;
 using WEB_Demo.Api.Data;
 
 #nullable disable
@@ -20,6 +21,7 @@ namespace WEB_Demo.Api.Data.Migrations
                 .HasAnnotation("ProductVersion", "8.0.11")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
+            NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "vector");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
@@ -218,6 +220,141 @@ namespace WEB_Demo.Api.Data.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("WEB_Demo.Api.Data.AssistantConversation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ContextIssueId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ContextProjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "UpdatedAt");
+
+                    b.ToTable("AssistantConversations", (string)null);
+                });
+
+            modelBuilder.Entity("WEB_Demo.Api.Data.AssistantMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasMaxLength(16000)
+                        .HasColumnType("character varying(16000)");
+
+                    b.Property<Guid>("ConversationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("MetadataJson")
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ConversationId", "CreatedAt");
+
+                    b.ToTable("AssistantMessages", (string)null);
+                });
+
+            modelBuilder.Entity("WEB_Demo.Api.Data.AssistantPendingAction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ConversationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("IdempotencyKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("PreviewJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("ResultJson")
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ConversationId")
+                        .IsUnique()
+                        .HasFilter("\"Status\" IN ('Pending', 'Processing')");
+
+                    b.HasIndex("IdempotencyKey")
+                        .IsUnique();
+
+                    b.HasIndex("ConversationId", "Status");
+
+                    b.ToTable("AssistantPendingActions", (string)null);
+                });
+
             modelBuilder.Entity("WEB_Demo.Api.Data.Issue", b =>
                 {
                     b.Property<Guid>("Id")
@@ -271,8 +408,6 @@ namespace WEB_Demo.Api.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("AssigneeUserId");
-
                     b.HasIndex("CreatorUserId");
 
                     b.HasIndex("ProjectId", "AssigneeUserId");
@@ -284,6 +419,8 @@ namespace WEB_Demo.Api.Data.Migrations
                     b.HasIndex("ProjectId", "Type");
 
                     b.HasIndex("ProjectId", "UpdatedAt");
+
+                    b.HasIndex("AssigneeUserId", "Status", "DueDate");
 
                     b.ToTable("Issues", (string)null);
                 });
@@ -370,6 +507,21 @@ namespace WEB_Demo.Api.Data.Migrations
                     b.HasIndex("ProjectId", "CreatedAt");
 
                     b.ToTable("IssueHistory", (string)null);
+                });
+
+            modelBuilder.Entity("WEB_Demo.Api.Data.IssueLabel", b =>
+                {
+                    b.Property<Guid>("IssueId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("LabelId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("IssueId", "LabelId");
+
+                    b.HasIndex("LabelId");
+
+                    b.ToTable("IssueLabels", (string)null);
                 });
 
             modelBuilder.Entity("WEB_Demo.Api.Data.Permission", b =>
@@ -494,6 +646,44 @@ namespace WEB_Demo.Api.Data.Migrations
                     b.ToTable("ProjectAuditEvents", (string)null);
                 });
 
+            modelBuilder.Entity("WEB_Demo.Api.Data.ProjectLabel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Color")
+                        .IsRequired()
+                        .HasMaxLength(7)
+                        .HasColumnType("character varying(7)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProjectId", "NormalizedName")
+                        .IsUnique();
+
+                    b.ToTable("ProjectLabels", (string)null);
+                });
+
             modelBuilder.Entity("WEB_Demo.Api.Data.ProjectMembership", b =>
                 {
                     b.Property<Guid>("ProjectId")
@@ -596,6 +786,67 @@ namespace WEB_Demo.Api.Data.Migrations
                     b.ToTable("RolePermissions", (string)null);
                 });
 
+            modelBuilder.Entity("WEB_Demo.Api.Data.SpecVectorDocument", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Capability")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("ChunkId")
+                        .IsRequired()
+                        .HasMaxLength(600)
+                        .HasColumnType("character varying(600)");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasMaxLength(12000)
+                        .HasColumnType("character varying(12000)");
+
+                    b.Property<string>("ContentHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("Dimension")
+                        .HasColumnType("integer");
+
+                    b.Property<Vector>("Embedding")
+                        .IsRequired()
+                        .HasColumnType("vector(1024)");
+
+                    b.Property<string>("EmbeddingModel")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("SourcePath")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Embedding");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Embedding"), "hnsw");
+                    NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex("Embedding"), new[] { "vector_cosine_ops" });
+
+                    b.HasIndex("ChunkId", "EmbeddingModel")
+                        .IsUnique();
+
+                    b.ToTable("SpecVectorDocuments", (string)null);
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
                 {
                     b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole", null)
@@ -645,6 +896,37 @@ namespace WEB_Demo.Api.Data.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("WEB_Demo.Api.Data.AssistantConversation", b =>
+                {
+                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("WEB_Demo.Api.Data.AssistantMessage", b =>
+                {
+                    b.HasOne("WEB_Demo.Api.Data.AssistantConversation", "Conversation")
+                        .WithMany("Messages")
+                        .HasForeignKey("ConversationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Conversation");
+                });
+
+            modelBuilder.Entity("WEB_Demo.Api.Data.AssistantPendingAction", b =>
+                {
+                    b.HasOne("WEB_Demo.Api.Data.AssistantConversation", "Conversation")
+                        .WithMany("PendingActions")
+                        .HasForeignKey("ConversationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Conversation");
                 });
 
             modelBuilder.Entity("WEB_Demo.Api.Data.Issue", b =>
@@ -727,6 +1009,25 @@ namespace WEB_Demo.Api.Data.Migrations
                     b.Navigation("Project");
                 });
 
+            modelBuilder.Entity("WEB_Demo.Api.Data.IssueLabel", b =>
+                {
+                    b.HasOne("WEB_Demo.Api.Data.Issue", "Issue")
+                        .WithMany("IssueLabels")
+                        .HasForeignKey("IssueId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("WEB_Demo.Api.Data.ProjectLabel", "Label")
+                        .WithMany("IssueLabels")
+                        .HasForeignKey("LabelId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Issue");
+
+                    b.Navigation("Label");
+                });
+
             modelBuilder.Entity("WEB_Demo.Api.Data.ProjectAuditEvent", b =>
                 {
                     b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", "ActorUser")
@@ -742,6 +1043,17 @@ namespace WEB_Demo.Api.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("ActorUser");
+
+                    b.Navigation("Project");
+                });
+
+            modelBuilder.Entity("WEB_Demo.Api.Data.ProjectLabel", b =>
+                {
+                    b.HasOne("WEB_Demo.Api.Data.Project", "Project")
+                        .WithMany("Labels")
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Project");
                 });
@@ -793,11 +1105,20 @@ namespace WEB_Demo.Api.Data.Migrations
                     b.Navigation("Role");
                 });
 
+            modelBuilder.Entity("WEB_Demo.Api.Data.AssistantConversation", b =>
+                {
+                    b.Navigation("Messages");
+
+                    b.Navigation("PendingActions");
+                });
+
             modelBuilder.Entity("WEB_Demo.Api.Data.Issue", b =>
                 {
                     b.Navigation("Comments");
 
                     b.Navigation("History");
+
+                    b.Navigation("IssueLabels");
                 });
 
             modelBuilder.Entity("WEB_Demo.Api.Data.Permission", b =>
@@ -815,7 +1136,14 @@ namespace WEB_Demo.Api.Data.Migrations
 
                     b.Navigation("Issues");
 
+                    b.Navigation("Labels");
+
                     b.Navigation("Memberships");
+                });
+
+            modelBuilder.Entity("WEB_Demo.Api.Data.ProjectLabel", b =>
+                {
+                    b.Navigation("IssueLabels");
                 });
 #pragma warning restore 612, 618
         }

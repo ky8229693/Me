@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import Button from 'primevue/button';
 import type { AuthUser } from '../api/types';
+import { useI18n } from 'vue-i18n';
+import LanguageSelect from '../components/LanguageSelect.vue';
+
+const { t } = useI18n();
 
 defineProps<{
   user: AuthUser;
@@ -8,6 +12,7 @@ defineProps<{
 
 const emit = defineEmits<{
   toggleSidebar: [];
+  openAssistant: [];
   refresh: [];
   logout: [];
 }>();
@@ -21,7 +26,7 @@ const emit = defineEmits<{
         icon="pi pi-bars"
         text
         rounded
-        aria-label="Toggle navigation"
+        :aria-label="t('layout.toggleNavigation')"
         @click="emit('toggleSidebar')"
       />
       <div class="layout-topbar-logo" aria-label="WEB Demo">
@@ -33,12 +38,14 @@ const emit = defineEmits<{
     </div>
 
     <div class="layout-topbar-actions">
-      <Button icon="pi pi-refresh" text rounded aria-label="Refresh todos" @click="emit('refresh')" />
+      <Button icon="pi pi-sparkles" label="小助手" text :aria-label="'開啟 AI 小助手'" @click="emit('openAssistant')" />
+      <Button icon="pi pi-refresh" text rounded :aria-label="t('layout.refreshDashboard')" @click="emit('refresh')" />
+      <LanguageSelect />
       <div class="auth-user">
         <i class="pi pi-user" aria-hidden="true"></i>
         <span>{{ user.email }}</span>
       </div>
-      <Button icon="pi pi-sign-out" label="Logout" severity="secondary" @click="emit('logout')" />
+      <Button icon="pi pi-sign-out" :label="t('layout.logout')" severity="secondary" @click="emit('logout')" />
     </div>
   </header>
 </template>

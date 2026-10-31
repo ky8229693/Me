@@ -1,7 +1,6 @@
 export interface E2ETestData {
   email: string;
   password: string;
-  todoTitle: string;
 }
 
 export const e2eAdmin = {
@@ -14,7 +13,6 @@ export function createE2ETestData(): E2ETestData {
 
   return {
     email: `e2e-${uniqueId}@example.test`,
-    password: 'E2eTest123!',
-    todoTitle: `E2E todo ${uniqueId}`
+    password: 'E2eTest123!'
   };
 }

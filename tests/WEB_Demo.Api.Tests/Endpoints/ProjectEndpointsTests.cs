@@ -146,6 +146,91 @@ public sealed class ProjectEndpointsTests
         afterAdd!.Data.Should().BeEmpty();
     }
 
+    [Fact]
+    public async Task ProjectOverview_ReturnsKpisStatusDistributionAndOrderedIssueLists()
+    {
+        await using var factory = CreateFactory();
+        var ownerClient = factory.CreateClient();
+        var owner = await CreateAdminAsync(factory, ownerClient);
+        await LoginAsAsync(ownerClient, owner.Email);
+        var project = await (await ownerClient.PostAsJsonAsync("/api/projects", new CreateProjectRequest("Overview", null)))
+            .Content.ReadFromJsonAsync<ApiResponse<ProjectInfo>>();
+        var projectId = project!.Data!.Id;
+        var now = DateTimeOffset.UtcNow;
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            dbContext.Issues.AddRange(
+                NewIssue(projectId, owner.Id, "Draft overdue", IssueStatus.Draft, now.AddDays(-3), now.AddMinutes(-7)),
+                NewIssue(projectId, owner.Id, "Approved", IssueStatus.Approved, now.AddDays(4), now.AddMinutes(-6)),
+                NewIssue(projectId, owner.Id, "Doing", IssueStatus.InProgress, now.AddDays(1), now.AddMinutes(-5)),
+                NewIssue(projectId, owner.Id, "QA", IssueStatus.QA, now.AddDays(2), now.AddMinutes(-4)),
+                NewIssue(projectId, owner.Id, "Done past due", IssueStatus.Done, now.AddDays(-1), now.AddMinutes(-3)),
+                NewIssue(projectId, owner.Id, "Done recent", IssueStatus.Done, null, now.AddMinutes(-2)),
+                NewIssue(projectId, owner.Id, "Newest", IssueStatus.Approved, now.AddDays(3), now.AddMinutes(-1)));
+            await dbContext.SaveChangesAsync();
+        }
+
+        var response = await ownerClient.GetFromJsonAsync<ApiResponse<ProjectOverviewInfo>>(
+            $"/api/projects/{projectId}/overview");
+
+        response!.Data.Should().NotBeNull();
+        response.Data!.TotalCount.Should().Be(7);
+        response.Data.InProgressCount.Should().Be(1);
+        response.Data.CompletedCount.Should().Be(2);
+        response.Data.OverdueCount.Should().Be(1);
+        response.Data.CompletionRate.Should().Be(29);
+        response.Data.StatusCounts.Select(item => item.Status).Should().Equal(
+            nameof(IssueStatus.Draft), nameof(IssueStatus.Approved), nameof(IssueStatus.InProgress),
+            nameof(IssueStatus.QA), nameof(IssueStatus.Done));
+        response.Data.StatusCounts.Select(item => item.Count).Should().Equal(1, 2, 1, 1, 2);
+        response.Data.RecentIssues.Should().HaveCount(5);
+        response.Data.RecentIssues.First().Title.Should().Be("Newest");
+        response.Data.UpcomingIssues.Select(item => item.Title).Should().Equal("Doing", "QA", "Newest", "Approved");
+    }
+
+    [Fact]
+    public async Task ProjectOverview_RequiresMembershipAndAllowsArchivedEmptyProject()
+    {
+        await using var factory = CreateFactory();
+        var ownerClient = factory.CreateClient();
+        var owner = await CreateAdminAsync(factory, ownerClient);
+        await LoginAsAsync(ownerClient, owner.Email);
+        var project = await (await ownerClient.PostAsJsonAsync("/api/projects", new CreateProjectRequest("Empty Overview", null)))
+            .Content.ReadFromJsonAsync<ApiResponse<ProjectInfo>>();
+        var projectId = project!.Data!.Id;
+        (await ownerClient.PostAsync($"/api/projects/{projectId}/archive", null)).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var archived = await ownerClient.GetFromJsonAsync<ApiResponse<ProjectOverviewInfo>>(
+            $"/api/projects/{projectId}/overview");
+        archived!.Data!.TotalCount.Should().Be(0);
+        archived.Data.CompletionRate.Should().Be(0);
+        archived.Data.StatusCounts.Should().HaveCount(5).And.OnlyContain(item => item.Count == 0);
+        archived.Data.RecentIssues.Should().BeEmpty();
+        archived.Data.UpcomingIssues.Should().BeEmpty();
+
+        var outsiderClient = factory.CreateClient();
+        var outsider = await CreateAdminAsync(factory, outsiderClient);
+        await LoginAsAsync(outsiderClient, outsider.Email);
+        (await outsiderClient.GetAsync($"/api/projects/{projectId}/overview"))
+            .StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    private static Issue NewIssue(Guid projectId, string creatorUserId, string title, IssueStatus status,
+        DateTimeOffset? dueDate, DateTimeOffset updatedAt) => new()
+    {
+        ProjectId = projectId,
+        CreatorUserId = creatorUserId,
+        Title = title,
+        Type = IssueType.Feature,
+        Priority = IssuePriority.Medium,
+        Status = status,
+        DueDate = dueDate,
+        CreatedAt = updatedAt.AddHours(-1),
+        UpdatedAt = updatedAt
+    };
+
     private static async Task<AdminUser> CreateAdminAsync(WebApplicationFactory<Program> factory, HttpClient client)
     {
         var registered = await RegisterAsync(client, $"admin-{Guid.NewGuid():N}@example.com");

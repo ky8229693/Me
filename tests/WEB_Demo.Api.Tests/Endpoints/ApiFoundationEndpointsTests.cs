@@ -47,19 +47,12 @@ public sealed class ApiFoundationEndpointsTests : IClassFixture<WebApplicationFa
     }
 
     [Fact]
-    public async Task Todos_ReturnsSuccessfulApiResponseWithTodoItems()
+    public async Task RemovedTodoRoute_ReturnsNotFound()
     {
         var client = _factory.CreateClient();
 
         var response = await client.GetAsync("/api/todos");
-        var body = await response.Content.ReadFromJsonAsync<ApiResponse<List<TodoItem>>>();
-
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
-        body.Should().NotBeNull();
-        body!.Success.Should().BeTrue();
-        body.ErrorCode.Should().BeNull();
-        body.Data.Should().NotBeNull();
-        body.Data.Should().NotBeEmpty();
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
     private sealed record HealthResponse(

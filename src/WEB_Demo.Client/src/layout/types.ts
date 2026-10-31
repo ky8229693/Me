@@ -1,5 +1,5 @@
 export type MenuItem = {
-  routeName: 'dashboard' | 'projects' | 'users' | 'roles';
+  routeName: 'dashboard' | 'spec-assistant' | 'projects' | 'users' | 'roles';
   label: string;
   icon: string;
 };

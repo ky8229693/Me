@@ -3,6 +3,7 @@ import { flushPromises, mount } from '@vue/test-utils';
 import PrimeVue from 'primevue/config';
 import Aura from '@primeuix/themes/aura';
 import AdminRolesView from './AdminRolesView.vue';
+import { i18n } from '../i18n';
 import * as roleApi from '../api/adminRoles';
 
 const toastAdd = vi.fn();
@@ -38,7 +39,7 @@ describe('AdminRolesView', () => {
           permissions: ['roles.read', 'roles.manage', 'permissions.manage']
         }
       },
-      global: { plugins: [[PrimeVue, { theme: { preset: Aura } }]] }
+      global: { plugins: [i18n, [PrimeVue, { theme: { preset: Aura } }]] }
     });
     await flushPromises();
     expect(wrapper.text()).toContain('System');

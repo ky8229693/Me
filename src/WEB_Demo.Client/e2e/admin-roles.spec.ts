@@ -18,7 +18,7 @@ test('Admin 可以建立、指派、改名並刪除自訂 role', async ({ page }
   const roleRow = page.getByRole('row').filter({ has: page.getByLabel(`Role name ${roleName}`) });
   await expect(roleRow).toBeVisible();
   await roleRow.getByRole('button', { name: 'Permissions' }).click();
-  await page.getByText('View roles', { exact: true }).click();
+  await page.getByText('Read roles', { exact: true }).click();
   await page.getByRole('button', { name: 'Save permissions' }).click();
 
   await page.getByRole('link', { name: 'User Management' }).click();

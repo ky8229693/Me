@@ -16,16 +16,6 @@ export class ApiError extends Error {
   }
 }
 
-export type TodoItem = {
-  id: number;
-  title: string;
-  isDone: boolean;
-};
-
-export type CreateTodoRequest = {
-  title: string;
-};
-
 export type AuthUser = {
   id: string;
   email: string;
@@ -101,6 +91,26 @@ export type ProjectMemberCandidate = {
   email: string;
 };
 
+export type ProjectOverviewIssueInfo = {
+  id: string;
+  title: string;
+  status: IssueStatus;
+  priority: IssuePriority;
+  dueDate: string | null;
+  updatedAt: string;
+};
+
+export type ProjectOverviewInfo = {
+  totalCount: number;
+  inProgressCount: number;
+  completedCount: number;
+  overdueCount: number;
+  completionRate: number;
+  statusCounts: { status: IssueStatus; count: number }[];
+  recentIssues: ProjectOverviewIssueInfo[];
+  upcomingIssues: ProjectOverviewIssueInfo[];
+};
+
 export type PagedResult<T> = {
   items: T[];
   page: number;
@@ -111,6 +121,8 @@ export type PagedResult<T> = {
 export type IssueType = 'Feature' | 'Bug' | 'ChangeRequest';
 export type IssuePriority = 'Low' | 'Medium' | 'High' | 'Critical';
 export type IssueStatus = 'Draft' | 'Approved' | 'InProgress' | 'QA' | 'Done';
+
+export type IssueLabelInfo = { id: string; name: string; color: string };
 
 export type IssueInfo = {
   id: string;
@@ -131,6 +143,40 @@ export type IssueInfo = {
   canAssign: boolean;
   canComment: boolean;
   allowedTransitions: IssueStatus[];
+  labels: IssueLabelInfo[];
+};
+
+export type IssueBoardInfo = { items: IssueInfo[]; total: number; isTruncated: boolean; statuses: IssueStatus[] };
+
+export type DashboardIssueInfo = {
+  id: string; projectId: string; projectName: string; title: string; status: IssueStatus;
+  priority: IssuePriority; dueDate: string | null; updatedAt: string; labels: IssueLabelInfo[];
+};
+export type DashboardActivityInfo = { projectId: string; projectName: string; issueId: string | null; description: string; createdAt: string };
+export type DashboardInfo = {
+  assignedCount: number; overdueCount: number; statusCounts: { status: IssueStatus; count: number }[];
+  assignedIssues: DashboardIssueInfo[]; overdueIssues: DashboardIssueInfo[]; recentActivity: DashboardActivityInfo[];
+};
+
+export type SpecAssistantQueryResponse = {
+  answer: string;
+  relatedSpecs: string[];
+  sources: string[];
+};
+
+export type ProjectDraft = { id: string; name: string; description: string | null; expiresAt: string };
+
+export type SpecIndexStatus = {
+  retrievalMode: 'Hybrid' | 'Embedding' | 'Lexical';
+  status: 'Unbuilt' | 'Building' | 'Ready' | 'Unavailable' | 'NotApplicable';
+  model: string | null;
+  chunkCount: number;
+  builtAt: string | null;
+  store: 'PostgreSql' | 'Memory';
+  inserted: number;
+  updated: number;
+  deleted: number;
+  unchanged: number;
 };
 
 export type IssueHistoryInfo = {
@@ -150,4 +196,23 @@ export type IssueCommentInfo = {
   authorEmail: string;
   content: string;
   createdAt: string;
+};
+
+export type AssistantContext = { projectId: string | null; issueId: string | null };
+export type AssistantMessage = { id: string; role: 'User' | 'Assistant' | 'Tool'; content: string; createdAt: string };
+export type AssistantPendingAction = {
+  id: string; type: 'CreateProject' | 'CreateIssue'; status: string;
+  preview: Record<string, unknown>; expiresAt: string; result: Record<string, unknown> | null;
+};
+export type AssistantConversationSummary = {
+  id: string; title: string | null; context: AssistantContext; createdAt: string; updatedAt: string;
+};
+export type AssistantConversation = AssistantConversationSummary & {
+  messages: AssistantMessage[]; pendingAction: AssistantPendingAction | null;
+};
+export type AssistantTurn = {
+  message: AssistantMessage; pendingAction: AssistantPendingAction | null; sources: string[]; state: string;
+};
+export type AssistantConfirmation = {
+  action: AssistantPendingAction; message: string; resource: unknown;
 };

@@ -113,6 +113,77 @@ public sealed class IssueEndpointsTests
         history!.Data.Should().Contain(item => item.ChangeType == nameof(IssueHistoryChangeType.AssignmentChanged) && item.PreviousValue == member.User.Id);
     }
 
+    [Fact]
+    public async Task LabelsBoardAndDashboard_RespectProjectScopeAndWorkflow()
+    {
+        await using var factory = CreateFactory();
+        var client = factory.CreateClient();
+        var owner = await CreateAdminAsync(factory, client);
+        await LoginAsAsync(client, owner.Email);
+        var projectId = await CreateProjectAsync(client, "Kanban workspace");
+
+        var labelResponse = await client.PostAsJsonAsync($"/api/projects/{projectId}/labels",
+            new CreateProjectLabelRequest("Backend", "#2563EB"));
+        labelResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+        var label = (await labelResponse.Content.ReadFromJsonAsync<ApiResponse<IssueLabelInfo>>())!.Data!;
+        (await client.PostAsJsonAsync($"/api/projects/{projectId}/labels",
+            new CreateProjectLabelRequest("backend", "#22C55E"))).StatusCode.Should().Be(HttpStatusCode.Conflict);
+
+        var issueResponse = await client.PostAsJsonAsync($"/api/projects/{projectId}/issues",
+            new CreateIssueRequest("Build board", null, "Feature", "High", owner.Id, DateTimeOffset.UtcNow.AddDays(-1), [label.Id]));
+        issueResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+        var issue = (await issueResponse.Content.ReadFromJsonAsync<ApiResponse<IssueInfo>>())!.Data!;
+        issue.Labels.Should().ContainSingle(item => item.Id == label.Id);
+
+        var filtered = await client.GetFromJsonAsync<ApiResponse<PagedResult<IssueInfo>>>(
+            $"/api/projects/{projectId}/issues?labels={label.Id}");
+        filtered!.Data!.Items.Should().ContainSingle(item => item.Id == issue.Id);
+        var board = await client.GetFromJsonAsync<ApiResponse<IssueBoardInfo>>(
+            $"/api/projects/{projectId}/issues/board?labels={label.Id}");
+        board!.Data!.Statuses.Should().Equal("Draft", "Approved", "InProgress", "QA", "Done");
+        board.Data.Items.Should().ContainSingle(item => item.Id == issue.Id);
+
+        var dashboard = await client.GetFromJsonAsync<ApiResponse<DashboardInfo>>("/api/dashboard");
+        dashboard!.Data!.AssignedCount.Should().Be(1);
+        dashboard.Data.OverdueCount.Should().Be(1);
+        dashboard.Data.AssignedIssues.Should().ContainSingle(item => item.Id == issue.Id);
+
+        (await client.PostAsJsonAsync($"/api/projects/{projectId}/issues/{issue.Id}/transitions",
+            new TransitionIssueRequest("Approved"))).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await client.DeleteAsync($"/api/projects/{projectId}/labels/{label.Id}"))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+        var history = await client.GetFromJsonAsync<ApiResponse<IReadOnlyCollection<IssueHistoryInfo>>>(
+            $"/api/projects/{projectId}/issues/{issue.Id}/history");
+        history!.Data.Should().Contain(item => item.FieldName == "Labels");
+    }
+
+    [Fact]
+    public async Task ViewerCannotManageLabelsAndNonMemberCannotReadBoardOrDashboardActivity()
+    {
+        await using var factory = CreateFactory();
+        var ownerClient = factory.CreateClient();
+        var owner = await CreateAdminAsync(factory, ownerClient);
+        await LoginAsAsync(ownerClient, owner.Email);
+        var projectId = await CreateProjectAsync(ownerClient, "Label authorization");
+        var viewerClient = factory.CreateClient();
+        var viewer = await RegisterAsync(viewerClient);
+        (await ownerClient.PostAsJsonAsync($"/api/projects/{projectId}/members",
+            new AddProjectMemberRequest(viewer.User.Email, nameof(ProjectRole.Viewer)))).StatusCode.Should().Be(HttpStatusCode.OK);
+        await LoginAsAsync(viewerClient, viewer.User.Email);
+
+        (await viewerClient.PostAsJsonAsync($"/api/projects/{projectId}/labels",
+            new CreateProjectLabelRequest("Forbidden", "#DC2626"))).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await viewerClient.GetAsync($"/api/projects/{projectId}/issues/board")).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var outsiderClient = factory.CreateClient();
+        var outsider = await RegisterAsync(outsiderClient);
+        await LoginAsAsync(outsiderClient, outsider.User.Email);
+        (await outsiderClient.GetAsync($"/api/projects/{projectId}/issues/board")).StatusCode.Should().Be(HttpStatusCode.NotFound);
+        var dashboard = await outsiderClient.GetFromJsonAsync<ApiResponse<DashboardInfo>>("/api/dashboard");
+        dashboard!.Data!.AssignedCount.Should().Be(0);
+        dashboard.Data.RecentActivity.Should().BeEmpty();
+    }
+
     private static async Task<Guid> CreateProjectAsync(HttpClient client, string name)
     {
         var body = await (await client.PostAsJsonAsync("/api/projects", new CreateProjectRequest(name, null)))

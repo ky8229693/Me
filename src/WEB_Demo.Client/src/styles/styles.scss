@@ -238,6 +238,7 @@ body {
 }
 
 .layout-main-container {
+  min-width: 0;
   min-height: 100vh;
   margin-left: 326px;
   padding: 104px 28px 28px;
@@ -253,7 +254,9 @@ body {
 }
 
 .workspace {
-  width: min(1180px, 100%);
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   border: 1px solid var(--surface-border);
   border-radius: var(--content-border-radius);
   background: var(--surface-card);
@@ -377,19 +380,8 @@ h1 {
   font-weight: 600;
 }
 
-.todo-form {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  gap: 10px;
-  margin-bottom: 18px;
-}
-
 .content-alert {
   margin-bottom: 18px;
-}
-
-.todo-table {
-  width: 100%;
 }
 
 .admin-search,
@@ -405,15 +397,6 @@ h1 {
 
 .admin-users-view .p-datatable {
   width: 100%;
-}
-
-.todo-title {
-  overflow-wrap: anywhere;
-}
-
-.todo-title.done {
-  color: var(--text-color-secondary);
-  text-decoration: line-through;
 }
 
 .skeleton-list {
@@ -439,8 +422,7 @@ h1 {
 .p-password,
 .p-password-input,
 .auth-mode,
-.auth-submit,
-.todo-input {
+.auth-submit {
   width: 100%;
 }
 
@@ -510,10 +492,6 @@ h1 {
   .auth-user {
     align-items: stretch;
     flex-direction: column;
-  }
-
-  .todo-form {
-    grid-template-columns: 1fr;
   }
 
   .admin-search,
